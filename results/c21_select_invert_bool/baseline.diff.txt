@@ -1,0 +1,7 @@
+in function f:
+  in block %entry:
+    >   %not.c = xor i1 %c, true
+    >   %s = zext i1 %not.c to i32
+    >   ret i32 %s
+    <   %s = select i1 %c, i32 0, i32 1
+    <   ret i32 %s

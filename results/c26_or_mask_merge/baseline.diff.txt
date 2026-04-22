@@ -1,0 +1,7 @@
+in function f:
+  in block %entry:
+    >   %b = or i32 %x, 18
+    >   ret i32 %b
+    <   %a = or i32 %x, 16
+    <   %b = or i32 %a, 2
+    <   ret i32 %b

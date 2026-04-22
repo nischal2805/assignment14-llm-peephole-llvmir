@@ -1,0 +1,7 @@
+in function f:
+  in block %entry:
+    >   %b = mul i32 %x, 3
+    >   ret i32 %b
+    <   %a = mul i32 %x, 2
+    <   %b = add i32 %a, %x
+    <   ret i32 %b

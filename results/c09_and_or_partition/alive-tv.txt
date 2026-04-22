@@ -1,0 +1,21 @@
+
+----------------------------------------
+define i32 @f(i32 %x) {
+entry:
+  %a = and i32 %x, 252645135
+  %b = and i32 %x, 4042322160
+  %c = or i32 %a, %b
+  ret i32 %c
+}
+=>
+define i32 @f(i32 %x) {
+entry:
+  ret i32 %x
+}
+Transformation seems to be correct!
+
+Summary:
+  1 correct transformations
+  0 incorrect transformations
+  0 failed-to-prove transformations
+  0 Alive2 errors

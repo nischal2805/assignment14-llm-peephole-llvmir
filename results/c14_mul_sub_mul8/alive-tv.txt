@@ -1,0 +1,23 @@
+
+----------------------------------------
+define i32 @f(i32 %x, i32 %y) {
+entry:
+  %a = and i32 %x, 1
+  %b = and i32 %y, 1
+  %c = xor i32 %a, %b
+  ret i32 %c
+}
+=>
+define i32 @f(i32 %x, i32 %y) {
+entry:
+  %d = xor i32 %x, %y
+  %e = and i32 %d, 1
+  ret i32 %e
+}
+Transformation seems to be correct!
+
+Summary:
+  1 correct transformations
+  0 incorrect transformations
+  0 failed-to-prove transformations
+  0 Alive2 errors

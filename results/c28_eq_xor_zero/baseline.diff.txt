@@ -1,0 +1,9 @@
+in function f:
+  in block %entry:
+    >   %cmp = icmp eq i32 %x, %y
+    >   %r = zext i1 %cmp to i32
+    >   ret i32 %r
+    <   %a = xor i32 %x, %y
+    <   %cmp = icmp eq i32 %a, 0
+    <   %r = zext i1 %cmp to i32
+    <   ret i32 %r

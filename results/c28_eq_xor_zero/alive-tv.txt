@@ -1,0 +1,23 @@
+
+----------------------------------------
+define i32 @f(i32 %x, i32 %y) {
+entry:
+  %a = xor i32 %x, %y
+  %cmp = icmp eq i32 %a, 0
+  %r = zext i1 %cmp to i32
+  ret i32 %r
+}
+=>
+define i32 @f(i32 %x, i32 %y) {
+entry:
+  %cmp = icmp eq i32 %x, %y
+  %r = zext i1 %cmp to i32
+  ret i32 %r
+}
+Transformation seems to be correct!
+
+Summary:
+  1 correct transformations
+  0 incorrect transformations
+  0 failed-to-prove transformations
+  0 Alive2 errors

@@ -1,0 +1,6 @@
+in function f:
+  in block %entry:
+    >   %r = and i32 %x, 15
+    >   ret i32 %r
+    <   %r = urem i32 %x, 16
+    <   ret i32 %r

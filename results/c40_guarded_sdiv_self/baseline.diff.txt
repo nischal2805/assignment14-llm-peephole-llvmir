@@ -1,0 +1,5 @@
+in function f:
+  in block %entry:
+    >   %. = select i1 %iszero, i32 0, i32 1
+    >   ret i32 %.
+    <   br i1 %iszero, label %zero, label %nonzero

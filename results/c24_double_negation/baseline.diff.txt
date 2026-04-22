@@ -1,0 +1,6 @@
+in function f:
+  in block %entry:
+    >   ret i32 %x
+    <   %a = sub i32 0, %x
+    <   %b = sub i32 0, %a
+    <   ret i32 %b

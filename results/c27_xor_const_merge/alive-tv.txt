@@ -1,0 +1,21 @@
+
+----------------------------------------
+define i32 @f(i32 %x) {
+entry:
+  %a = xor i32 %x, 85
+  %b = xor i32 %a, 51
+  ret i32 %b
+}
+=>
+define i32 @f(i32 %x) {
+entry:
+  %r = xor i32 %x, 102
+  ret i32 %r
+}
+Transformation seems to be correct!
+
+Summary:
+  1 correct transformations
+  0 incorrect transformations
+  0 failed-to-prove transformations
+  0 Alive2 errors

@@ -1,0 +1,7 @@
+in function f:
+  in block %entry:
+    >   %z = and i64 %x, 65535
+    >   ret i64 %z
+    <   %t = trunc i64 %x to i16
+    <   %z = zext i16 %t to i64
+    <   ret i64 %z

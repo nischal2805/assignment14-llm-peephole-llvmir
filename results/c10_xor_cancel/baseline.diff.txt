@@ -1,0 +1,6 @@
+in function f:
+  in block %entry:
+    >   ret i32 %x
+    <   %a = xor i32 %x, %y
+    <   %b = xor i32 %a, %y
+    <   ret i32 %b

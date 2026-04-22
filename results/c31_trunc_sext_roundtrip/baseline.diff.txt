@@ -1,0 +1,6 @@
+in function f:
+  in block %entry:
+    >   ret i8 %x
+    <   %s = sext i8 %x to i32
+    <   %t = trunc i32 %s to i8
+    <   ret i8 %t

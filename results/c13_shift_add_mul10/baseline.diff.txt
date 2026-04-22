@@ -1,0 +1,7 @@
+in function f:
+  in block %entry:
+    >   %a = and i32 %x, -2
+    >   ret i32 %a
+    <   %a = lshr i32 %x, 1
+    <   %b = shl i32 %a, 1
+    <   ret i32 %b

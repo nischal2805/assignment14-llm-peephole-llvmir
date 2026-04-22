@@ -1,0 +1,22 @@
+
+----------------------------------------
+define i32 @f(i32 %x) {
+entry:
+  %cmp = icmp uge i32 %x, 1
+  %r = zext i1 %cmp to i32
+  ret i32 %r
+}
+=>
+define i32 @f(i32 %x) {
+entry:
+  %cmp = icmp ne i32 %x, 0
+  %r = zext i1 %cmp to i32
+  ret i32 %r
+}
+Transformation seems to be correct!
+
+Summary:
+  1 correct transformations
+  0 incorrect transformations
+  0 failed-to-prove transformations
+  0 Alive2 errors

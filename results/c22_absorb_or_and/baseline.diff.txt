@@ -1,0 +1,6 @@
+in function f:
+  in block %entry:
+    >   ret i32 %x
+    <   %a = and i32 %x, %y
+    <   %b = or i32 %x, %a
+    <   ret i32 %b

@@ -1,0 +1,4 @@
+in function f:
+  in block %entry:
+    >   ret i32 %x
+    <   br i1 %c, label %left, label %right

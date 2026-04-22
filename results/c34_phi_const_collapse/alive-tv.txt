@@ -1,0 +1,28 @@
+
+----------------------------------------
+define i32 @f(i1 %c) {
+entry:
+  br i1 %c, label %then, label %else
+
+else:
+  br label %merge
+
+then:
+  br label %merge
+
+merge:
+  %p = phi i32 [ 42, %then ], [ 42, %else ]
+  ret i32 %p
+}
+=>
+define i32 @f(i1 %c) {
+entry:
+  ret i32 42
+}
+Transformation seems to be correct!
+
+Summary:
+  1 correct transformations
+  0 incorrect transformations
+  0 failed-to-prove transformations
+  0 Alive2 errors

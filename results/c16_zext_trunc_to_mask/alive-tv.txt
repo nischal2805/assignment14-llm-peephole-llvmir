@@ -1,0 +1,21 @@
+
+----------------------------------------
+define i64 @f(i64 %x) {
+entry:
+  %t = trunc i64 %x to i16
+  %z = zext i16 %t to i64
+  ret i64 %z
+}
+=>
+define i64 @f(i64 %x) {
+entry:
+  %m = and i64 %x, 65535
+  ret i64 %m
+}
+Transformation seems to be correct!
+
+Summary:
+  1 correct transformations
+  0 incorrect transformations
+  0 failed-to-prove transformations
+  0 Alive2 errors

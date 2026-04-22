@@ -1,0 +1,7 @@
+in function f:
+  in block %entry:
+    >   %b = and i32 %x, 15
+    >   ret i32 %b
+    <   %a = and i32 %x, 255
+    <   %b = and i32 %a, 15
+    <   ret i32 %b

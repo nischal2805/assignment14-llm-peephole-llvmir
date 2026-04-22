@@ -1,0 +1,8 @@
+in function f:
+  in block %entry:
+    >   %not.c = xor i1 %c, true
+    >   %s = zext i1 %not.c to i32
+    >   ret i32 %s
+    <   %z = zext i1 %c to i32
+    <   %r = xor i32 %z, 1
+    <   ret i32 %r

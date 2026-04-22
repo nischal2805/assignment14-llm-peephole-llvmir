@@ -1,0 +1,21 @@
+
+----------------------------------------
+define i32 @f(i32 %x) {
+entry:
+  %a = or i32 %x, 16
+  %b = or i32 %a, 2
+  ret i32 %b
+}
+=>
+define i32 @f(i32 %x) {
+entry:
+  %r = or i32 %x, 18
+  ret i32 %r
+}
+Transformation seems to be correct!
+
+Summary:
+  1 correct transformations
+  0 incorrect transformations
+  0 failed-to-prove transformations
+  0 Alive2 errors
