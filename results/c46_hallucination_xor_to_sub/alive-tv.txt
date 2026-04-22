@@ -1,0 +1,33 @@
+
+----------------------------------------
+define i32 @f(i32 %x) {
+entry:
+  %a = xor i32 %x, 1
+  ret i32 %a
+}
+=>
+define i32 @f(i32 %x) {
+entry:
+  %a = sub i32 %x, 1
+  ret i32 %a
+}
+Transformation doesn't verify!
+
+ERROR: Value mismatch
+
+Example:
+i32 %x = #x00000000 (0)
+
+Source:
+i32 %a = #x00000001 (1)
+
+Target:
+i32 %a = #xffffffff (4294967295, -1)
+Source value: #x00000001 (1)
+Target value: #xffffffff (4294967295, -1)
+
+Summary:
+  0 correct transformations
+  1 incorrect transformations
+  0 failed-to-prove transformations
+  0 Alive2 errors

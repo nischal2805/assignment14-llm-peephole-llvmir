@@ -1,0 +1,2 @@
+Simulated baseline matched or-with-zero.
+Bounded check passed for sampled inputs.

@@ -15,7 +15,13 @@ python3 "${ROOT_DIR}/scripts/run_experiments.py" \
   --llvm-bin "${LLVM_BIN}" \
   --alive-tv "${ALIVE_TV}"
 
+python3 "${ROOT_DIR}/scripts/run_mlir_experiments.py" \
+  --cases-dir "${ROOT_DIR}/mlir_cases" \
+  --results-dir "${ROOT_DIR}/results_mlir"
+
 echo
 echo "Done. See:"
 echo "  ${ROOT_DIR}/results/summary.md"
 echo "  ${ROOT_DIR}/results/summary.json"
+echo "  ${ROOT_DIR}/results_mlir/summary.md"
+echo "  ${ROOT_DIR}/results_mlir/summary.json"

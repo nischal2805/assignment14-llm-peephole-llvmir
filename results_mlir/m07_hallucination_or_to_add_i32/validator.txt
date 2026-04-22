@@ -1,0 +1,2 @@
+No simulated baseline rule matched.
+Bounded check failed on inputs (1, 1): source=1, candidate=2

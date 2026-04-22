@@ -1,0 +1,34 @@
+
+----------------------------------------
+define i32 @f(i32 %x, i32 %y) {
+entry:
+  %a = or i32 %x, %y
+  ret i32 %a
+}
+=>
+define i32 @f(i32 %x, i32 %y) {
+entry:
+  %a = add i32 %x, %y
+  ret i32 %a
+}
+Transformation doesn't verify!
+
+ERROR: Target's return value is more undefined
+
+Example:
+i32 %x = #xffffffff (4294967295, -1)
+i32 %y = undef
+
+Source:
+i32 %a = #xffffffff (4294967295, -1)
+
+Target:
+i32 %a = #xfffffffb (4294967291, -5)
+Source value: #xffffffff (4294967295, -1)
+Target value: #xfffffffb (4294967291, -5)
+
+Summary:
+  0 correct transformations
+  1 incorrect transformations
+  0 failed-to-prove transformations
+  0 Alive2 errors

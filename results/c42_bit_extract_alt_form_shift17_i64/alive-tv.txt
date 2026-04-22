@@ -1,0 +1,22 @@
+
+----------------------------------------
+define i64 @f(i64 %x) {
+entry:
+  %a = lshr i64 %x, 17
+  %b = and i64 %a, 1023
+  ret i64 %b
+}
+=>
+define i64 @f(i64 %x) {
+entry:
+  %m = and i64 %x, 134086656
+  %b = lshr i64 %m, 17
+  ret i64 %b
+}
+Transformation seems to be correct!
+
+Summary:
+  1 correct transformations
+  0 incorrect transformations
+  0 failed-to-prove transformations
+  0 Alive2 errors

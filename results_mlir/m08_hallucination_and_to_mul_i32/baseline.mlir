@@ -1,0 +1,12 @@
+// TITLE: MLIR hallucination: and rewritten as mul
+// EXPECTED: missed
+// CATEGORY: hallucination
+// FAMILY: mlir_hallucinated_logic
+// VARIANT: and_to_mul_i32
+module {
+  func.func @f(%arg0: i32) -> i32 {
+    %c1 = arith.constant 1 : i32
+    %0 = arith.andi %arg0, %c1 : i32
+    return %0 : i32
+  }
+}

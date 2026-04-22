@@ -1,0 +1,8 @@
+in function f:
+  in block %entry:
+    >   %a = lshr i32 %x, 5
+    >   %b = and i32 %a, 127
+    >   ret i32 %b
+    <   %m = and i32 %x, 4064
+    <   %b = lshr i32 %m, 5
+    <   ret i32 %b

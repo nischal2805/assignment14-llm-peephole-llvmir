@@ -1,0 +1,12 @@
+// TITLE: MLIR fold and with all ones
+// EXPECTED: already-optimized
+// CATEGORY: llm-candidate
+// FAMILY: mlir_baseline_identities
+// VARIANT: andi_allones_rhs_i32
+module {
+  func.func @f(%arg0: i32) -> i32 {
+    %cneg1 = arith.constant -1 : i32
+    %0 = arith.andi %arg0, %cneg1 : i32
+    return %0 : i32
+  }
+}

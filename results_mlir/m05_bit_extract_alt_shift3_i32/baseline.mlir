@@ -1,0 +1,14 @@
+// TITLE: MLIR bit extract via shift then mask
+// EXPECTED: missed
+// CATEGORY: llm-candidate
+// FAMILY: mlir_bit_extract_alt_form
+// VARIANT: shift3_mask7_i32
+module {
+  func.func @f(%arg0: i32) -> i32 {
+    %c3 = arith.constant 3 : i32
+    %0 = arith.shrui %arg0, %c3 : i32
+    %c7 = arith.constant 7 : i32
+    %1 = arith.andi %0, %c7 : i32
+    return %1 : i32
+  }
+}

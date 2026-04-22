@@ -1,0 +1,6 @@
+in function f:
+  in block %entry:
+    >   ret i32 %x
+    <   %a = and i1 %c, true
+    <   %b = select i1 %a, i32 %x, i32 %x
+    <   ret i32 %b

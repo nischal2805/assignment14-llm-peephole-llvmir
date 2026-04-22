@@ -1,0 +1,22 @@
+
+----------------------------------------
+define i32 @f(i32 %x) {
+entry:
+  %a = lshr i32 %x, 5
+  %b = and i32 %a, 127
+  ret i32 %b
+}
+=>
+define i32 @f(i32 %x) {
+entry:
+  %m = and i32 %x, 4064
+  %b = lshr i32 %m, 5
+  ret i32 %b
+}
+Transformation seems to be correct!
+
+Summary:
+  1 correct transformations
+  0 incorrect transformations
+  0 failed-to-prove transformations
+  0 Alive2 errors

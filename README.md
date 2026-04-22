@@ -8,13 +8,13 @@ It is designed for a beginner:
 - no prior LLVM knowledge required,
 - one-command execution,
 - clear outputs and interpretable results,
-- reproducible pipeline using LLVM + Alive2.
+- reproducible pipeline using LLVM + Alive2, plus MLIR bounded/rule-based checking.
 
 ---
 
 ## 1) What this project does
 
-For each test case, the pipeline checks:
+For each LLVM IR test case, the pipeline checks:
 
 1. **LLM candidate validity** using `alive-tv`  
    (is the proposed rewrite actually correct?)
@@ -25,11 +25,23 @@ For each test case, the pipeline checks:
 3. **Candidate vs baseline comparison** using:
    - `llvm-diff`
 
+4. **Profitability proxy** using value-producing instruction counts
+   (source vs candidate vs baseline)
+
+5. **Generalization analysis** by grouping related variants into families
+
+For each MLIR test case, a companion runner checks:
+
+1. **Bounded equivalence validation** using an internal interpreter over sampled inputs
+2. **Rule-based baseline simulation** for common canonicalizations
+3. **Candidate vs baseline comparison** and the same classification buckets
+
 Then it classifies each case as:
 
 - `baseline_optimizes` (LLVM already does it)
 - `confirmed_missed` (candidate valid and baseline missed it)
 - `invalid_candidate` (LLM rewrite is unsound)
+- `hallucinated_candidate` (intentionally bogus rewrite rejected by the validator)
 - other review classes
 
 ---
@@ -43,20 +55,35 @@ assignment14-llm-peephole-llvmir/
 │   ├── *.ll                     # source IR
 │   ├── *.candidate.ll           # candidate rewrite IR
 │   └── README.md
+├── mlir_cases/
+│   ├── *.mlir                   # source MLIR patterns
+│   ├── *.candidate.mlir         # candidate MLIR rewrites
+│   └── README.md
 ├── scripts/
 │   ├── check_env.sh             # tool/version sanity check
 │   ├── run_experiments.py       # core runner
+│   ├── run_mlir_experiments.py  # MLIR bounded/rule-based runner
 │   └── run_all.sh               # one-command entrypoint
-└── results/
+├── results/
+│   ├── summary.md
+│   ├── summary.json
+│   └── <case-name>/
+│       ├── alive-tv.txt
+│       ├── baseline.ll
+│       ├── baseline.diff.txt
+│       ├── baseline.stderr.txt
+│       └── candidate_vs_baseline.diff.txt
+└── results_mlir/
     ├── summary.md
     ├── summary.json
     └── <case-name>/
-        ├── alive-tv.txt
-        ├── baseline.ll
+        ├── validator.txt
+        ├── baseline.mlir
         ├── baseline.diff.txt
-        ├── baseline.stderr.txt
         └── candidate_vs_baseline.diff.txt
 ```
+
+> `results/` is for LLVM IR experiments; `results_mlir/` is for MLIR experiments.
 
 ---
 
@@ -86,27 +113,27 @@ cd /home/boss/llvm/assignment14-llm-peephole-llvmir
 
 After it finishes:
 
-- Human-readable results: `results/summary.md`
-- Machine-readable results: `results/summary.json`
+- LLVM human-readable: `results/summary.md`
+- LLVM machine-readable: `results/summary.json`
+- MLIR human-readable: `results_mlir/summary.md`
+- MLIR machine-readable: `results_mlir/summary.json`
 
 ---
 
-## 5) Current experiment results (this run)
+## 5) Current experiment results
 
-From `results/summary.json`:
+Run the pipeline to regenerate current numbers:
 
-- Total cases: **8**
-- Confirmed missed opportunities: **0**
-- Invalid candidate rewrites: **1**
-- Already optimized by baseline: **5**
+```bash
+./scripts/run_all.sh
+```
 
-Interpretation:
+Then inspect:
 
-- The harness works end-to-end.
-- Your current curated case set mostly contains known simplifications that LLVM already performs.
-- One intentionally unsound candidate is correctly rejected by Alive2 (good sanity check).
-
-This is still a valid assignment outcome: the methodology is correct and reproducible, even if this first case pack did not produce a confirmed miss yet.
+- `results/summary.json` for machine-readable metrics
+- `results/summary.md` for tables and notes (including family and profitability sections)
+- `results_mlir/summary.json` for MLIR machine-readable metrics
+- `results_mlir/summary.md` for MLIR tables and notes
 
 ---
 
@@ -122,12 +149,18 @@ Add two files in `cases/`:
 ```llvm
 ; TITLE: My optimization idea
 ; EXPECTED: missed
+; CATEGORY: llm-candidate
+; FAMILY: my_pattern_family
+; VARIANT: v1
 define i32 @f(i32 %x) {
 entry:
   ; source version
   ret i32 %x
 }
 ```
+
+`CATEGORY`, `FAMILY`, and `VARIANT` are optional but recommended for
+hallucination/ambiguity tracking and generalization analysis.
 
 Candidate file should contain same function signature:
 
@@ -143,6 +176,26 @@ Then rerun:
 
 ```bash
 ./scripts/run_all.sh
+```
+
+To add an MLIR case, create:
+
+1. `mlir_cases/my_case.mlir`
+2. `mlir_cases/my_case.candidate.mlir`
+
+With MLIR metadata at top:
+
+```mlir
+// TITLE: My MLIR optimization idea
+// EXPECTED: missed
+// CATEGORY: llm-candidate
+// FAMILY: my_mlir_family
+// VARIANT: v1
+module {
+  func.func @f(%arg0: i32) -> i32 {
+    return %arg0 : i32
+  }
+}
 ```
 
 ---
@@ -162,6 +215,23 @@ For each case, inspect:
 
 - `candidate_vs_baseline.diff.txt`  
   Difference between candidate and baseline.
+
+For MLIR cases, inspect:
+
+- `results_mlir/<case>/validator.txt`  
+  Bounded-check verdict and baseline-rule notes.
+
+- `results_mlir/<case>/baseline.mlir` and `baseline.diff.txt`  
+  Simulated baseline output and source-vs-baseline diff.
+
+- `results_mlir/<case>/candidate_vs_baseline.diff.txt`  
+  Candidate-vs-baseline diff.
+
+And at the aggregate level:
+
+- `results/summary.md`  
+  Includes per-case classification, candidate profitability buckets,
+  family-level generalization conclusions, and quality bucket counts.
 
 If candidate is valid **and** baseline did not apply equivalent simplification, that is your strongest “missed optimization” evidence.
 
@@ -215,4 +285,3 @@ You now have a full assignment-grade experimental framework:
 - explainable,
 - beginner-friendly,
 - and ready for extension until you find strong missed-optimization examples.
-
