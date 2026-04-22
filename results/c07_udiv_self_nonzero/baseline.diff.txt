@@ -1,0 +1,6 @@
+in function f:
+  in block %entry:
+    >   ret i32 1
+    <   %nz = or i32 %x, 1
+    <   %q = udiv i32 %nz, %nz
+    <   ret i32 %q

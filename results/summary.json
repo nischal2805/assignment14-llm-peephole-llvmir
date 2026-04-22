@@ -1,0 +1,112 @@
+{
+  "total_cases": 8,
+  "confirmed_missed": 0,
+  "invalid_candidates": 1,
+  "baseline_optimizes": 5,
+  "results": [
+    {
+      "name": "c01_add_zero",
+      "title": "Remove add by zero",
+      "expected": "already-optimized",
+      "alive_status": "valid",
+      "alive_correct": 1,
+      "alive_incorrect": 0,
+      "alive_errors": 0,
+      "baseline_changed": true,
+      "candidate_differs_from_baseline": false,
+      "classification": "baseline_optimizes",
+      "notes": "Baseline InstCombine/SimplifyCFG already performs an equivalent transform."
+    },
+    {
+      "name": "c02_xor_self",
+      "title": "Fold x xor x to zero",
+      "expected": "already-optimized",
+      "alive_status": "valid",
+      "alive_correct": 1,
+      "alive_incorrect": 0,
+      "alive_errors": 0,
+      "baseline_changed": true,
+      "candidate_differs_from_baseline": false,
+      "classification": "baseline_optimizes",
+      "notes": "Baseline InstCombine/SimplifyCFG already performs an equivalent transform."
+    },
+    {
+      "name": "c03_mul_one",
+      "title": "Remove multiply by one",
+      "expected": "already-optimized",
+      "alive_status": "valid",
+      "alive_correct": 1,
+      "alive_incorrect": 0,
+      "alive_errors": 0,
+      "baseline_changed": true,
+      "candidate_differs_from_baseline": false,
+      "classification": "baseline_optimizes",
+      "notes": "Baseline InstCombine/SimplifyCFG already performs an equivalent transform."
+    },
+    {
+      "name": "c04_select_const",
+      "title": "Fold select on constant condition",
+      "expected": "already-optimized",
+      "alive_status": "valid",
+      "alive_correct": 1,
+      "alive_incorrect": 0,
+      "alive_errors": 0,
+      "baseline_changed": true,
+      "candidate_differs_from_baseline": false,
+      "classification": "baseline_optimizes",
+      "notes": "Baseline InstCombine/SimplifyCFG already performs an equivalent transform."
+    },
+    {
+      "name": "c05_or_zero",
+      "title": "Remove or with zero",
+      "expected": "already-optimized",
+      "alive_status": "valid",
+      "alive_correct": 1,
+      "alive_incorrect": 0,
+      "alive_errors": 0,
+      "baseline_changed": true,
+      "candidate_differs_from_baseline": false,
+      "classification": "baseline_optimizes",
+      "notes": "Baseline InstCombine/SimplifyCFG already performs an equivalent transform."
+    },
+    {
+      "name": "c06_sdiv_self_nonzero",
+      "title": "Divide a nonzero value by itself",
+      "expected": "missed",
+      "alive_status": "valid",
+      "alive_correct": 1,
+      "alive_incorrect": 0,
+      "alive_errors": 0,
+      "baseline_changed": true,
+      "candidate_differs_from_baseline": false,
+      "classification": "not_missed",
+      "notes": "Candidate does not provide a distinct simplification over baseline output."
+    },
+    {
+      "name": "c07_udiv_self_nonzero",
+      "title": "Unsigned divide nonzero value by itself",
+      "expected": "missed",
+      "alive_status": "valid",
+      "alive_correct": 1,
+      "alive_incorrect": 0,
+      "alive_errors": 0,
+      "baseline_changed": true,
+      "candidate_differs_from_baseline": false,
+      "classification": "not_missed",
+      "notes": "Candidate does not provide a distinct simplification over baseline output."
+    },
+    {
+      "name": "c08_invalid_candidate_example",
+      "title": "Invalid rewrite sanity check",
+      "expected": "missed",
+      "alive_status": "invalid",
+      "alive_correct": 0,
+      "alive_incorrect": 1,
+      "alive_errors": 0,
+      "baseline_changed": true,
+      "candidate_differs_from_baseline": true,
+      "classification": "invalid_candidate",
+      "notes": "Candidate rewrite is unsound per Alive2."
+    }
+  ]
+}
