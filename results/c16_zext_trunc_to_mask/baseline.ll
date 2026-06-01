@@ -1,5 +1,5 @@
-; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c16_zext_trunc_to_mask.ll'
-source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c16_zext_trunc_to_mask.ll"
+; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c16_zext_trunc_to_mask.ll'
+source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c16_zext_trunc_to_mask.ll"
 
 define i64 @f(i64 %x) {
 entry:

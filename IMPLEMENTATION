@@ -1,0 +1,47 @@
+# Implementation
+
+## Core runners
+
+### `src/run_experiments.py` (LLVM IR)
+
+For each `.ll` testcase in `testcases/llvm_ir`:
+
+1. **Parse metadata** from the source header.
+2. **Run baseline**:
+   - `opt -passes=instcombine,simplifycfg`
+3. **Validate candidate**:
+   - `alive-tv source.ll candidate.ll`
+4. **Compare diffs**:
+   - `llvm-diff source.ll baseline.ll`
+   - `llvm-diff candidate.ll baseline.ll`
+5. **Compute profitability proxy** using value-producing instruction counts.
+6. **Classify** into `confirmed_missed`, `invalid_candidate`, `baseline_optimizes`, etc.
+7. **Emit summaries** in `results/summary.{md,json}` and per-case folders.
+
+### `src/run_mlir_experiments.py` (MLIR)
+
+For each `.mlir` testcase in `testcases/mlir`:
+
+1. **Parse metadata** and the `func.func` body.
+2. **Bounded equivalence**:
+   - Evaluate source and candidate on sampled inputs.
+3. **Baseline simulation**:
+   - Apply a small set of canonical rules for constants.
+4. **Compare and classify** as with LLVM IR.
+5. **Emit summaries** in `results_mlir/summary.{md,json}`.
+
+The MLIR parser supports a small subset of `arith.*` ops (`addi`, `muli`, `subi`, `andi`, `ori`, `xori`, `shli`, `shrui`) to keep the evaluator simple and explicit.
+
+## Scripts
+
+- `scripts/build.sh`: environment sanity check.
+- `scripts/run.sh`: main entrypoint for the demo.
+- `scripts/run_all.sh`: compatibility alias (calls `run.sh`).
+
+## Output structure
+
+Each testcase produces a folder under `results/` or `results_mlir/` containing:
+
+- Validator output (Alive2 or bounded equivalence)
+- Baseline output and diffs
+- Candidate vs baseline diff

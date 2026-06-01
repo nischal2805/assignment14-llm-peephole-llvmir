@@ -1,5 +1,5 @@
-; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c36_icmp_uge_one_to_ne_zero.ll'
-source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c36_icmp_uge_one_to_ne_zero.ll"
+; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c36_icmp_uge_one_to_ne_zero.ll'
+source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c36_icmp_uge_one_to_ne_zero.ll"
 
 define i32 @f(i32 %x) {
 entry:

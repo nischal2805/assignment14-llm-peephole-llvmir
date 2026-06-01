@@ -1,5 +1,5 @@
-; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c15_shift_mask_low24.ll'
-source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c15_shift_mask_low24.ll"
+; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c15_shift_mask_low24.ll'
+source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c15_shift_mask_low24.ll"
 
 define i32 @f(i32 %x) {
 entry:

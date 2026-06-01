@@ -1,5 +1,5 @@
-; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c20_select_const_to_zext.ll'
-source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c20_select_const_to_zext.ll"
+; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c20_select_const_to_zext.ll'
+source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c20_select_const_to_zext.ll"
 
 define i32 @f(i1 %c) {
 entry:

@@ -1,6 +1,6 @@
 # MLIR Case Pack Overview
 
-This directory contains MLIR optimization test cases.
+This directory contains MLIR optimization test cases used by the experiment runner.
 
 Each case has two files:
 

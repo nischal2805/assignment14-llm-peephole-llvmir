@@ -1,0 +1,64 @@
+# Evaluation
+
+## Metrics reported
+
+The pipeline reports these metrics for both LLVM IR and MLIR:
+
+- **Confirmed missed**: Alive2/bounded-valid and not matched by baseline.
+- **Baseline optimizes**: baseline already performs the simplification.
+- **Invalid / hallucinated**: candidates rejected by the validator.
+- **Profitability proxy**: value-producing instruction count (`better`, `neutral`, `worse`).
+- **Quality buckets**: `valid_profitable`, `valid_neutral`, `valid_unprofitable`, `hallucinated`, etc.
+
+## Comparison methodology
+
+- **LLVM IR baseline**: `opt -passes=instcombine,simplifycfg`, diffed with `llvm-diff`.
+- **MLIR baseline**: rule-based canonicalization simulation for simple constant rules.
+- **Correctness**: Alive2 for LLVM IR, bounded equivalence for MLIR.
+
+## Testcases
+
+- **LLVM IR**: 48 cases in `testcases/llvm_ir`
+- **MLIR**: 8 cases in `testcases/mlir`
+
+Each case is a source/candidate pair with metadata used for classification and family grouping.
+
+## Results snapshot
+
+### LLVM IR (from `results/summary.json`)
+
+- Total cases: **48**
+- Confirmed missed: **4**
+- Baseline optimizes: **31**
+- Hallucinated: **4**
+- Invalid: **0**
+- Profitability (valid only): **30 better**, **12 neutral**, **2 worse**
+
+Quality buckets:
+
+| Bucket | Count |
+|---|---|
+| `valid_profitable` | 30 |
+| `valid_neutral` | 11 |
+| `valid_unprofitable` | 1 |
+| `ambiguous_valid` | 2 |
+| `hallucinated` | 4 |
+
+### MLIR (from `results_mlir/summary.json`)
+
+- Total cases: **8**
+- Confirmed missed: **2**
+- Baseline optimizes: **4**
+- Hallucinated: **2**
+- Invalid: **0**
+- Profitability (valid only): **4 better**, **2 neutral**, **0 worse**
+
+Quality buckets:
+
+| Bucket | Count |
+|---|---|
+| `valid_profitable` | 4 |
+| `valid_neutral` | 2 |
+| `hallucinated` | 2 |
+
+For per-case diffs and detailed notes, see `results/summary.md` and `results_mlir/summary.md`.

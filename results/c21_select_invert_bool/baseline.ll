@@ -1,5 +1,5 @@
-; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c21_select_invert_bool.ll'
-source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c21_select_invert_bool.ll"
+; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c21_select_invert_bool.ll'
+source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c21_select_invert_bool.ll"
 
 define i32 @f(i1 %c) {
 entry:

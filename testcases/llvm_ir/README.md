@@ -1,6 +1,6 @@
 # Case Pack Overview
 
-This directory contains assignment test cases.
+This directory contains LLVM IR peephole test cases used by the experiment runner.
 
 Each case has two files:
 

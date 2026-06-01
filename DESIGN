@@ -1,0 +1,47 @@
+# Design
+
+## Goal and scope
+
+This project evaluates whether LLM-generated peephole rewrites for LLVM IR and MLIR are:
+
+1. **Correct** (semantics-preserving),
+2. **Missed by LLVM** (not already handled by standard local passes), and
+3. **Worthwhile** (a simple profitability proxy).
+
+The scope is **local rewrites**. We intentionally avoid global or interprocedural optimization so the evaluation stays focused on peephole behavior.
+
+## Workflow overview
+
+1. **Curate patterns** in `testcases/llvm_ir` and `testcases/mlir`.
+2. **Propose rewrites** (LLM or hand-written) as paired candidate files.
+3. **Validate correctness**:
+   - LLVM IR: Alive2 equivalence checking.
+   - MLIR: bounded equivalence on sampled inputs.
+4. **Compare to baselines**:
+   - LLVM IR: `opt -passes=instcombine,simplifycfg` + `llvm-diff`.
+   - MLIR: rule-based canonicalization simulation.
+5. **Classify outcomes** and summarize metrics.
+
+## Dataset design
+
+Each testcase includes metadata (`EXPECTED`, `CATEGORY`, `FAMILY`, `VARIANT`) so we can:
+
+- Separate “already-optimized” vs “missed” hypotheses.
+- Track intentionally **invalid/hallucinated** candidates.
+- Group families for generalization analysis.
+
+## Alternatives considered
+
+- **Using full `-O2` baseline** instead of local peephole passes.  
+  Rejected because it introduces many global transformations that obscure whether a peephole was missed.
+
+- **Replacing Alive2 with randomized testing** for LLVM IR.  
+  Rejected because randomized testing is weaker than formal checking and misses edge cases.
+
+- **Using `mlir-opt` canonicalization passes** for MLIR baselines.  
+  Rejected to keep the workflow lightweight and avoid toolchain coupling; we simulate a small set of canonical rules instead.
+
+## Tradeoffs
+
+- The MLIR validator is bounded, so it can miss corner cases. This is intentional and documented.
+- Profitability is a **proxy** (instruction count), not a full cost model.

@@ -1,5 +1,5 @@
-; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c34_phi_const_collapse.ll'
-source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c34_phi_const_collapse.ll"
+; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c34_phi_const_collapse.ll'
+source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c34_phi_const_collapse.ll"
 
 define i32 @f(i1 %c) {
 entry:

@@ -1,5 +1,5 @@
-; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c35_bit_extract_alt_form.ll'
-source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/cases/c35_bit_extract_alt_form.ll"
+; ModuleID = '/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c35_bit_extract_alt_form.ll'
+source_filename = "/home/boss/llvm/assignment14-llm-peephole-llvmir/testcases/llvm_ir/c35_bit_extract_alt_form.ll"
 
 define i32 @f(i32 %x) {
 entry:
