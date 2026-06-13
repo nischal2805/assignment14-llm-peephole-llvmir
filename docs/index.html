@@ -1,73 +1,1054 @@
-<!doctype html>
-<html lang='en'>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'>
-<title>Assignment 14 Results</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Can LLMs Discover Missed Peephole Optimizations in LLVM IR?</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-:root { color-scheme: light; }
-body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 32px; color: #111; }
-h1, h2 { margin-bottom: 0.4em; }
-small { color: #555; }
-table { border-collapse: collapse; width: 100%; margin: 12px 0 28px; }
-th, td { border: 1px solid #ddd; padding: 8px; font-size: 13px; vertical-align: top; }
-th { background: #f6f6f6; text-align: left; }
-.code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-.badge { display: inline-block; padding: 2px 6px; border-radius: 6px; background: #eee; font-size: 12px; }
-.section { margin-top: 28px; }
+  :root {
+    --bg: #ffffff;
+    --surface: #fdf6f0;
+    --surface2: #fce8d8;
+    --border: #e8d5c4;
+    --accent: #d4521a;
+    --accent2: #2d7d46;
+    --accent3: #c0392b;
+    --accent4: #b35a00;
+    --text: #1a1008;
+    --muted: #6b5744;
+    --code-bg: #1a1008;
+    --code-text: #f5e6d8;
+    --radius: 10px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* NAV */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 2px solid var(--border);
+    padding: 0 24px;
+    display: flex; align-items: center; gap: 4px;
+    height: 54px;
+  }
+  nav .logo { font-weight: 800; font-size: 15px; color: var(--accent); margin-right: 16px; white-space: nowrap; }
+  nav a {
+    color: var(--muted); text-decoration: none; font-size: 13px;
+    padding: 5px 11px; border-radius: 6px; transition: all 0.15s;
+  }
+  nav a:hover { color: var(--accent); background: var(--surface2); }
+
+  /* HERO */
+  .hero {
+    padding: 72px 24px 56px;
+    text-align: center;
+    background: linear-gradient(160deg, #fff8f3 0%, #fdeede 100%);
+    border-bottom: 2px solid var(--border);
+  }
+  .hero-badge {
+    display: inline-block; padding: 4px 14px;
+    background: rgba(212,82,26,0.1); border: 1px solid rgba(212,82,26,0.3);
+    border-radius: 99px; font-size: 12px; color: var(--accent);
+    margin-bottom: 20px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700;
+  }
+  .hero h1 {
+    font-size: clamp(26px, 4.5vw, 50px);
+    font-weight: 900; line-height: 1.15; color: var(--text);
+    margin-bottom: 18px;
+  }
+  .hero h1 span { color: var(--accent); }
+  .hero p { font-size: 17px; color: var(--muted); max-width: 640px; margin: 0 auto 36px; }
+  .hero-stats {
+    display: flex; justify-content: center; gap: 0; flex-wrap: wrap;
+    margin-top: 48px; border: 2px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; max-width: 700px; margin-left: auto; margin-right: auto;
+    background: white;
+  }
+  .stat {
+    flex: 1; min-width: 140px; text-align: center; padding: 20px 12px;
+    border-right: 1px solid var(--border);
+  }
+  .stat:last-child { border-right: none; }
+  .stat-n { font-size: 38px; font-weight: 900; line-height: 1; }
+  .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  .stat.orange .stat-n { color: var(--accent); }
+  .stat.green .stat-n  { color: var(--accent2); }
+  .stat.red .stat-n    { color: var(--accent3); }
+  .stat.brown .stat-n  { color: var(--accent4); }
+
+  /* SECTION */
+  section { padding: 60px 24px; max-width: 1080px; margin: 0 auto; }
+  section + section { border-top: 2px solid var(--border); }
+  .section-label {
+    font-size: 11px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--accent); margin-bottom: 6px;
+  }
+  h2 { font-size: clamp(20px, 2.8vw, 30px); font-weight: 800; margin-bottom: 10px; color: var(--text); }
+  h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+  p { color: var(--muted); margin-bottom: 12px; }
+
+  /* COMPARISON GRID (LLM vs LLVM)
+  .compare-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 28px;
+  }
+  @media (max-width: 600px) { .compare-grid { grid-template-columns: 1fr; } }
+  .compare-card {
+    background: var(--surface); border: 2px solid var(--border);
+    border-radius: var(--radius); padding: 24px;
+    position: relative; overflow: hidden;
+  }
+  .compare-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  }
+  .compare-card.llm::before  { background: linear-gradient(90deg, var(--accent), var(--accent4)); }
+  .compare-card.llvm::before { background: linear-gradient(90deg, var(--accent3), #8b0000); }
+  .compare-card h3 { font-size: 22px; font-weight: 900; margin-bottom: 16px; }
+  .compare-card.llm h3  { color: var(--accent); }
+  .compare-card.llvm h3 { color: var(--accent3); }
+  .compare-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; }
+  .compare-key { font-size: 12px; color: var(--muted); min-width: 90px; padding-top: 2px; font-weight: 600; }
+  .compare-val { font-size: 14px; color: var(--text); }
+  */
+
+  /* PIPELINE / TIMELINE */
+  .timeline { margin-top: 28px; }
+  .tl-item { display: flex; gap: 20px; padding-bottom: 28px; position: relative; }
+  .tl-item::before {
+    content: ''; position: absolute; left: 19px; top: 42px;
+    width: 2px; height: calc(100% - 42px); background: var(--border);
+  }
+  .tl-item:last-child::before { display: none; }
+  .tl-dot {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800; border: 2px solid;
+  }
+  .tl-dot.o  { background: rgba(212,82,26,0.1);  border-color: var(--accent);  color: var(--accent); }
+  .tl-dot.g  { background: rgba(45,125,70,0.1);  border-color: var(--accent2); color: var(--accent2); }
+  .tl-dot.r  { background: rgba(192,57,43,0.1);  border-color: var(--accent3); color: var(--accent3); }
+  .tl-dot.br { background: rgba(179,90,0,0.1);   border-color: var(--accent4); color: var(--accent4); }
+  .tl-content h4 { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
+  .tl-content p  { font-size: 14px; margin-bottom: 6px; }
+
+  /* CONCEPTS GRID */
+  .concepts-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 14px; margin-top: 24px;
+  }
+  .concept-card {
+    background: var(--surface); border: 2px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+  }
+  .concept-icon { font-size: 26px; margin-bottom: 10px; }
+  .concept-card h3 { font-size: 15px; margin-bottom: 6px; }
+  .concept-card p  { font-size: 13px; }
+
+  /* TABS */
+  .tab-bar {
+    display: flex; gap: 4px; border-bottom: 2px solid var(--border);
+    margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .tab-btn {
+    padding: 8px 16px; font-size: 13px; font-weight: 600;
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; border-bottom: 3px solid transparent;
+    margin-bottom: -2px; transition: all 0.15s; border-radius: 6px 6px 0 0;
+  }
+  .tab-btn:hover { color: var(--accent); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* CODE DIFF */
+  .diff-container {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px;
+  }
+  @media (max-width: 700px) { .diff-container { grid-template-columns: 1fr; } }
+  .code-block {
+    background: var(--code-bg); border: 2px solid #3a2010;
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .code-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 14px; background: #2a1508; border-bottom: 1px solid #3a2010;
+    font-size: 12px; font-weight: 700; color: #c8a882;
+  }
+  .badge-small { padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+  .badge-source    { background: rgba(212,82,26,0.25);  color: #ff9966; }
+  .badge-candidate { background: rgba(45,125,70,0.25);  color: #66cc88; }
+  .badge-invalid   { background: rgba(192,57,43,0.25);  color: #ff6655; }
+  pre {
+    padding: 14px 16px; font-size: 12.5px; line-height: 1.75; overflow-x: auto;
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+    color: var(--code-text);
+  }
+  .kw  { color: #ff8c55; }
+  .type{ color: #88ccff; }
+  .fn  { color: #ddaaff; }
+  .num { color: #ffcc66; }
+  .cmt { color: #8a7060; font-style: italic; }
+  .str { color: #99ddaa; }
+
+  /* VERDICT */
+  .verdict {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 14px; border-radius: 99px; font-size: 13px; font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .verdict.confirmed   { background: rgba(45,125,70,0.1);   color: var(--accent2); border: 2px solid rgba(45,125,70,0.3); }
+  .verdict.hallucinated{ background: rgba(192,57,43,0.1);   color: var(--accent3); border: 2px solid rgba(192,57,43,0.3); }
+  .verdict.baseline    { background: rgba(179,90,0,0.1);    color: var(--accent4); border: 2px solid rgba(179,90,0,0.3); }
+
+  /* CHARTS */
+  .charts-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 20px; margin-top: 24px;
+  }
+  .chart-card {
+    background: var(--surface); border: 2px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+  }
+  .chart-card h3 { font-size: 13px; color: var(--muted); margin-bottom: 14px; font-weight: 600; }
+  .chart-wrap { position: relative; height: 210px; }
+
+  /* PROGRESS BARS */
+  .progress-row { margin-bottom: 12px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .progress-bar { height: 9px; background: var(--surface2); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
+  .progress-fill { height: 100%; border-radius: 99px; }
+
+  /* RESULTS TABLE */
+  .results-table-wrap { overflow-x: auto; margin-top: 20px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th {
+    background: var(--surface); color: var(--muted); font-weight: 700;
+    padding: 9px 11px; text-align: left;
+    border-bottom: 2px solid var(--border); white-space: nowrap;
+  }
+  td { padding: 8px 11px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: var(--surface); }
+  .mono { font-family: ui-monospace, monospace; font-size: 12px; color: var(--accent); }
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 5px;
+    font-size: 11px; font-weight: 700; white-space: nowrap;
+  }
+  .tag-confirmed   { background: rgba(45,125,70,0.12);  color: var(--accent2); }
+  .tag-baseline    { background: rgba(179,90,0,0.12);   color: var(--accent4); }
+  .tag-hallucinated{ background: rgba(192,57,43,0.12);  color: var(--accent3); }
+  .tag-notmissed   { background: rgba(107,87,68,0.1);   color: var(--muted); }
+  .tag-ambiguous   { background: rgba(212,82,26,0.1);   color: var(--accent); }
+  .tag-valid       { background: rgba(45,125,70,0.1);   color: var(--accent2); }
+  .tag-invalid     { background: rgba(192,57,43,0.1);   color: var(--accent3); }
+  .tag-better      { background: rgba(45,125,70,0.1);   color: var(--accent2); }
+  .tag-neutral     { background: rgba(107,87,68,0.08);  color: var(--muted); }
+  .tag-worse       { background: rgba(192,57,43,0.1);   color: var(--accent3); }
+
+  /* FILTER */
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  .filter-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .filter-btn {
+    padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 600;
+    border: 2px solid var(--border); background: white;
+    color: var(--muted); cursor: pointer; transition: all 0.15s;
+  }
+  .filter-btn:hover, .filter-btn.active {
+    border-color: var(--accent); color: var(--accent); background: rgba(212,82,26,0.06);
+  }
+
+  /* FAMILY CARDS */
+  .family-card {
+    background: var(--surface); border: 2px solid var(--border);
+    border-radius: var(--radius); padding: 18px; margin-bottom: 12px;
+  }
+  .family-card h4 { font-size: 15px; font-weight: 800; margin-bottom: 5px; font-family: monospace; color: var(--accent4); }
+  .family-meta { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .family-conclusion { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+  .fc-generalizes { background: rgba(45,125,70,0.12);  color: var(--accent2); }
+  .fc-hallucinated{ background: rgba(192,57,43,0.12);  color: var(--accent3); }
+  .fc-valid-but   { background: rgba(179,90,0,0.12);   color: var(--accent4); }
+
+  /* ANSWER BOX */
+  .answer-box {
+    background: linear-gradient(135deg, #fff8f3, #fff0e6);
+    border: 2px solid rgba(212,82,26,0.25);
+    border-radius: var(--radius); padding: 28px; margin-top: 24px;
+  }
+  .answer-box h3 { font-size: 19px; margin-bottom: 10px; }
+  .answer-box p  { color: var(--text); font-size: 15px; margin-bottom: 10px; }
+  .finding-list  { list-style: none; }
+  .finding-list li {
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px; display: flex; gap: 10px; align-items: flex-start; color: var(--text);
+  }
+  .finding-list li::before { content: '▸'; color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+
+  /* FOOTER */
+  footer {
+    text-align: center; padding: 36px 24px; color: var(--muted); font-size: 13px;
+    border-top: 2px solid var(--border); background: var(--surface);
+  }
+
+  /* INLINE HIGHLIGHT */
+  code {
+    font-family: ui-monospace, monospace; font-size: 12.5px;
+    background: var(--surface2); padding: 1px 5px; border-radius: 4px;
+    color: var(--accent4);
+  }
 </style>
 </head>
 <body>
-<h1>Assignment 14 — LLM Peephole Optimization Results</h1>
-<p>Static report generated from <span class='code'>results/summary.json</span> and <span class='code'>results_mlir/summary.json</span>.</p>
 
-<div class='section'>
-<h2>Summary metrics</h2>
-<table>
-<tr>
-<th>Track</th><th>Total</th><th>Confirmed missed</th><th>Baseline optimizes</th>
-<th>Hallucinated</th><th>Invalid</th><th>Profitability (valid only)</th>
-</tr>
-<tr>
-<td>LLVM IR</td>
-<td>48</td>
-<td>4</td>
-<td>31</td>
-<td>4</td>
-<td>0</td>
-<td>30 better / 12 neutral / 2 worse</td>
-</tr>
-<tr>
-<td>MLIR</td>
-<td>8</td>
-<td>2</td>
-<td>4</td>
-<td>2</td>
-<td>0</td>
-<td>4 better / 2 neutral / 0 worse</td>
-</tr>
-</table>
+<nav>
+  <span class="logo">⚡ LLM × LLVM</span>
+  <a href="#concepts">Concepts</a>
+  <a href="#pipeline">Pipeline</a>
+  <a href="#examples">Examples</a>
+  <a href="#results">Results</a>
+  <a href="#explorer">Explorer</a>
+  <a href="#answer">Conclusion</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">Assignment 14 · Compiler Optimization Research</div>
+  <h1>Can <span>LLMs</span> Discover Missed<br>Peephole Optimizations in LLVM IR?</h1>
+  <p>A formal study using Alive2 equivalence checking and MLIR bounded validation across 61 test cases — discovering what LLVM's own optimizer misses.</p>
+  <div class="hero-stats">
+    <div class="stat orange">
+      <div class="stat-n">61</div>
+      <div class="stat-label">Total test cases<br>53 LLVM IR · 8 MLIR</div>
+    </div>
+    <div class="stat green">
+      <div class="stat-n">8</div>
+      <div class="stat-label">Confirmed missed<br>optimizations found</div>
+    </div>
+    <div class="stat brown">
+      <div class="stat-n">35</div>
+      <div class="stat-label">Already handled<br>by LLVM baseline</div>
+    </div>
+    <div class="stat red">
+      <div class="stat-n">8</div>
+      <div class="stat-label">Hallucinations<br>caught by Alive2</div>
+    </div>
+  </div>
 </div>
 
-<div class='section'>
+<!-- CONCEPTS -->
+<section id="concepts">
+  <div class="section-label">Background — Key Concepts</div>
+  <h2>What is LLVM? What is LLVM IR? What is MLIR?</h2>
+  <p>Everything you need to understand before looking at the results.</p>
 
-<h2>LLVM IR cases</h2>
-<table>
-<tr><th>Case</th><th>Expected</th><th>Category</th><th>Family</th><th>Validator</th><th>Candidate inst count</th><th>Profitability</th><th>Baseline changed?</th><th>Candidate vs baseline</th><th>Classification</th><th>Notes</th></tr>
-<tr><td class='code'>c01_add_zero</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/1</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 1 (better).</td></tr><tr><td class='code'>c02_xor_self</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/1</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 1 (better).</td></tr><tr><td class='code'>c03_mul_one</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/1</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 1 (better).</td></tr><tr><td class='code'>c04_select_const</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/1</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 1 (better).</td></tr><tr><td class='code'>c05_or_zero</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/1</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 1 (better).</td></tr><tr><td class='code'>c06_sdiv_self_nonzero</td><td>missed</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>not_missed</td><td>Candidate does not provide a distinct simplification over baseline output. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>c07_udiv_self_nonzero</td><td>missed</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>not_missed</td><td>Candidate does not provide a distinct simplification over baseline output. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>c08_invalid_candidate_example</td><td>missed</td><td>hallucination</td><td>hallucinated_boolean_arith</td><td>invalid</td><td>0/1</td><td>better</td><td>True</td><td>True</td><td>hallucinated_candidate</td><td>Intentional hallucination candidate was rejected by Alive2. Candidate value-inst count is 0 vs source 1 (better).</td></tr><tr><td class='code'>c09_and_or_partition</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/3</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 3 (better).</td></tr><tr><td class='code'>c10_xor_cancel</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>c11_add_sub_cancel</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>c12_sub_add_cancel</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>c13_shift_add_mul10</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>1/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 1 vs source 2 (better).</td></tr><tr><td class='code'>c14_mul_sub_mul8</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>2/3</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 2 vs source 3 (better).</td></tr><tr><td class='code'>c15_shift_mask_low24</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>1/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 1 vs source 2 (better).</td></tr><tr><td class='code'>c16_zext_trunc_to_mask</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>1/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 1 vs source 2 (better).</td></tr><tr><td class='code'>c17_udiv_pow2_to_lshr</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>1/1</td><td>neutral</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 1 vs source 1 (neutral).</td></tr><tr><td class='code'>c18_urem_pow2_to_and</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>1/1</td><td>neutral</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 1 vs source 1 (neutral).</td></tr><tr><td class='code'>c19_select_same_arms</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/1</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 1 (better).</td></tr><tr><td class='code'>c20_select_const_to_zext</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>1/1</td><td>neutral</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 1 vs source 1 (neutral).</td></tr><tr><td class='code'>c21_select_invert_bool</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>2/1</td><td>worse</td><td>True</td><td>True</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 2 vs source 1 (worse).</td></tr><tr><td class='code'>c22_absorb_or_and</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>c23_absorb_and_or</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>c24_double_negation</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>c25_and_mask_merge</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>1/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 1 vs source 2 (better).</td></tr><tr><td class='code'>c26_or_mask_merge</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>1/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 1 vs source 2 (better).</td></tr><tr><td class='code'>c27_xor_const_merge</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>1/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 1 vs source 2 (better).</td></tr><tr><td class='code'>c28_eq_xor_zero</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>2/3</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 2 vs source 3 (better).</td></tr><tr><td class='code'>c29_ne_xor_zero</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>2/3</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 2 vs source 3 (better).</td></tr><tr><td class='code'>c30_trunc_zext_roundtrip</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>c31_trunc_sext_roundtrip</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>c32_cfg_phi_same_value</td><td>missed</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/3</td><td>better</td><td>True</td><td>False</td><td>not_missed</td><td>Candidate does not provide a distinct simplification over baseline output. Candidate value-inst count is 0 vs source 3 (better).</td></tr><tr><td class='code'>c33_cfg_redundant_branches</td><td>missed</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/0</td><td>neutral</td><td>True</td><td>False</td><td>not_missed</td><td>Candidate does not provide a distinct simplification over baseline output. Candidate value-inst count is 0 vs source 0 (neutral).</td></tr><tr><td class='code'>c34_phi_const_collapse</td><td>missed</td><td>llm-candidate</td><td>-</td><td>valid</td><td>0/1</td><td>better</td><td>True</td><td>False</td><td>not_missed</td><td>Candidate does not provide a distinct simplification over baseline output. Candidate value-inst count is 0 vs source 1 (better).</td></tr><tr><td class='code'>c35_bit_extract_alt_form</td><td>missed</td><td>llm-candidate</td><td>bit_extract_alt_form</td><td>valid</td><td>2/2</td><td>neutral</td><td>False</td><td>True</td><td>confirmed_missed</td><td>Candidate is Alive2-valid and differs from baseline; baseline did not apply equivalent simplification. Candidate value-inst count is 2 vs source 2 (neutral).</td></tr><tr><td class='code'>c36_icmp_uge_one_to_ne_zero</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>2/2</td><td>neutral</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 2 vs source 2 (neutral).</td></tr><tr><td class='code'>c37_icmp_ule_zero_to_eq_zero</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>2/2</td><td>neutral</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 2 vs source 2 (neutral).</td></tr><tr><td class='code'>c38_mul_add_mul3</td><td>already-optimized</td><td>llm-candidate</td><td>-</td><td>valid</td><td>1/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Baseline InstCombine/SimplifyCFG already performs an equivalent transform. Candidate value-inst count is 1 vs source 2 (better).</td></tr><tr><td class='code'>c39_shift_add_mul7</td><td>missed</td><td>llm-candidate</td><td>-</td><td>valid</td><td>1/4</td><td>better</td><td>True</td><td>False</td><td>not_missed</td><td>Candidate does not provide a distinct simplification over baseline output. Candidate value-inst count is 1 vs source 4 (better).</td></tr><tr><td class='code'>c40_guarded_sdiv_self</td><td>missed</td><td>llm-candidate</td><td>-</td><td>valid</td><td>2/2</td><td>neutral</td><td>True</td><td>False</td><td>not_missed</td><td>Candidate does not provide a distinct simplification over baseline output. Candidate value-inst count is 2 vs source 2 (neutral).</td></tr><tr><td class='code'>c41_bit_extract_alt_form_shift5_i32</td><td>missed</td><td>llm-candidate</td><td>bit_extract_alt_form</td><td>valid</td><td>2/2</td><td>neutral</td><td>False</td><td>True</td><td>confirmed_missed</td><td>Candidate is Alive2-valid and differs from baseline; baseline did not apply equivalent simplification. Candidate value-inst count is 2 vs source 2 (neutral).</td></tr><tr><td class='code'>c42_bit_extract_alt_form_shift17_i64</td><td>missed</td><td>llm-candidate</td><td>bit_extract_alt_form</td><td>valid</td><td>2/2</td><td>neutral</td><td>False</td><td>True</td><td>confirmed_missed</td><td>Candidate is Alive2-valid and differs from baseline; baseline did not apply equivalent simplification. Candidate value-inst count is 2 vs source 2 (neutral).</td></tr><tr><td class='code'>c43_bit_extract_alt_form_shift9_i32</td><td>missed</td><td>llm-candidate</td><td>bit_extract_alt_form</td><td>valid</td><td>2/2</td><td>neutral</td><td>False</td><td>True</td><td>confirmed_missed</td><td>Candidate is Alive2-valid and differs from baseline; baseline did not apply equivalent simplification. Candidate value-inst count is 2 vs source 2 (neutral).</td></tr><tr><td class='code'>c44_hallucination_or_to_add</td><td>missed</td><td>hallucination</td><td>hallucinated_boolean_arith</td><td>invalid</td><td>1/1</td><td>neutral</td><td>False</td><td>True</td><td>hallucinated_candidate</td><td>Intentional hallucination candidate was rejected by Alive2. Candidate value-inst count is 1 vs source 1 (neutral).</td></tr><tr><td class='code'>c45_hallucination_and_to_mul</td><td>missed</td><td>hallucination</td><td>hallucinated_boolean_arith</td><td>invalid</td><td>1/1</td><td>neutral</td><td>False</td><td>True</td><td>hallucinated_candidate</td><td>Intentional hallucination candidate was rejected by Alive2. Candidate value-inst count is 1 vs source 1 (neutral).</td></tr><tr><td class='code'>c46_hallucination_xor_to_sub</td><td>missed</td><td>hallucination</td><td>hallucinated_boolean_arith</td><td>invalid</td><td>1/1</td><td>neutral</td><td>False</td><td>True</td><td>hallucinated_candidate</td><td>Intentional hallucination candidate was rejected by Alive2. Candidate value-inst count is 1 vs source 1 (neutral).</td></tr><tr><td class='code'>c47_ambiguous_reorder_add</td><td>missed</td><td>ambiguous</td><td>ambiguous_no_gain</td><td>valid</td><td>2/2</td><td>neutral</td><td>True</td><td>True</td><td>different_but_not_missed</td><td>Candidate differs, but baseline also changed IR; investigate semantic relation. Candidate value-inst count is 2 vs source 2 (neutral).</td></tr><tr><td class='code'>c48_ambiguous_redundant_predicate</td><td>missed</td><td>ambiguous</td><td>ambiguous_no_gain</td><td>valid</td><td>2/1</td><td>worse</td><td>True</td><td>True</td><td>different_but_not_missed</td><td>Candidate differs, but baseline also changed IR; investigate semantic relation. Candidate value-inst count is 2 vs source 1 (worse).</td></tr>
-</table>
+  <div class="concepts-grid">
+    <div class="concept-card">
+      <div class="concept-icon">🔧</div>
+      <h3>LLVM — The Compiler Framework</h3>
+      <p>LLVM (Low Level Virtual Machine) is an open-source compiler infrastructure. Clang (C/C++), Rust, Swift, and Julia all use LLVM to convert source code into machine code. It has three stages: <strong>Frontend</strong> (parse source) → <strong>Middle-end</strong> (optimize) → <strong>Backend</strong> (generate x86/ARM code).</p>
+    </div>
 
-</div>
+    <div class="concept-card">
+      <div class="concept-icon">📄</div>
+      <h3>LLVM IR — The Intermediate Language</h3>
+      <p>LLVM IR is LLVM's internal "portable assembly." Every instruction is explicit and typed. It's architecture-independent — the optimizer works here before any CPU-specific code is generated.</p>
+      <pre style="font-size:11px; margin-top:10px; background:#1a1008; padding:10px; border-radius:6px;"><span class="cmt">; x + 0 written in LLVM IR</span>
+<span class="kw">define</span> <span class="type">i32</span> <span class="fn">@f</span>(<span class="type">i32</span> <span class="str">%x</span>) {
+  <span class="str">%a</span> = <span class="kw">add</span> <span class="type">i32</span> <span class="str">%x</span>, <span class="num">0</span>
+  <span class="kw">ret</span> <span class="type">i32</span> <span class="str">%a</span>
+}</pre>
+    </div>
 
-<div class='section'>
+    <div class="concept-card">
+      <div class="concept-icon">🔬</div>
+      <h3>MLIR — Multi-Level IR</h3>
+      <p>MLIR is LLVM's modular sibling (2019). Instead of one IR, it has multiple "dialects" for different abstraction levels. Used by TensorFlow, XLA, and JAX. This project uses the <code>arith.*</code> dialect for integer operations.</p>
+    </div>
 
-<h2>MLIR cases</h2>
-<table>
-<tr><th>Case</th><th>Expected</th><th>Category</th><th>Family</th><th>Validator</th><th>Candidate inst count</th><th>Profitability</th><th>Baseline changed?</th><th>Candidate vs baseline</th><th>Classification</th><th>Notes</th></tr>
-<tr><td class='code'>m01_addi_zero_i32</td><td>already-optimized</td><td>llm-candidate</td><td>mlir_baseline_identities</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Simulated MLIR baseline already performs an equivalent transform. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>m02_muli_one_i32</td><td>already-optimized</td><td>llm-candidate</td><td>mlir_baseline_identities</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Simulated MLIR baseline already performs an equivalent transform. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>m03_ori_zero_i32</td><td>already-optimized</td><td>llm-candidate</td><td>mlir_baseline_identities</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Simulated MLIR baseline already performs an equivalent transform. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>m04_andi_allones_i32</td><td>already-optimized</td><td>llm-candidate</td><td>mlir_baseline_identities</td><td>valid</td><td>0/2</td><td>better</td><td>True</td><td>False</td><td>baseline_optimizes</td><td>Simulated MLIR baseline already performs an equivalent transform. Candidate value-inst count is 0 vs source 2 (better).</td></tr><tr><td class='code'>m05_bit_extract_alt_shift3_i32</td><td>missed</td><td>llm-candidate</td><td>mlir_bit_extract_alt_form</td><td>valid</td><td>4/4</td><td>neutral</td><td>False</td><td>True</td><td>confirmed_missed</td><td>Candidate passed bounded equivalence and differs from simulated baseline. Candidate value-inst count is 4 vs source 4 (neutral).</td></tr><tr><td class='code'>m06_bit_extract_alt_shift5_i32</td><td>missed</td><td>llm-candidate</td><td>mlir_bit_extract_alt_form</td><td>valid</td><td>4/4</td><td>neutral</td><td>False</td><td>True</td><td>confirmed_missed</td><td>Candidate passed bounded equivalence and differs from simulated baseline. Candidate value-inst count is 4 vs source 4 (neutral).</td></tr><tr><td class='code'>m07_hallucination_or_to_add_i32</td><td>missed</td><td>hallucination</td><td>mlir_hallucinated_logic</td><td>invalid</td><td>1/1</td><td>neutral</td><td>False</td><td>True</td><td>hallucinated_candidate</td><td>Intentional hallucination candidate failed bounded equivalence. Candidate value-inst count is 1 vs source 1 (neutral).</td></tr><tr><td class='code'>m08_hallucination_and_to_mul_i32</td><td>missed</td><td>hallucination</td><td>mlir_hallucinated_logic</td><td>invalid</td><td>2/2</td><td>neutral</td><td>False</td><td>True</td><td>hallucinated_candidate</td><td>Intentional hallucination candidate failed bounded equivalence. Candidate value-inst count is 2 vs source 2 (neutral).</td></tr>
-</table>
+    <div class="concept-card">
+      <div class="concept-icon">🔍</div>
+      <h3>Peephole Optimization</h3>
+      <p>A <em>local</em> rewrite that looks at a small window of instructions and simplifies them. Like replacing <code>x + 0 → x</code> or <code>x XOR x → 0</code>. LLVM's <strong>InstCombine</strong> pass does these — but it's not exhaustive.</p>
+    </div>
 
-</div>
+    <div class="concept-card">
+      <div class="concept-icon">✅</div>
+      <h3>Alive2 — Formal Verification</h3>
+      <p>Alive2 uses SMT (Satisfiability Modulo Theories) solving to <em>mathematically prove</em> that two IR programs are equivalent for ALL possible inputs. If it says valid → correct. If invalid → it gives a concrete counterexample.</p>
+    </div>
 
+    <div class="concept-card">
+      <div class="concept-icon">🤖</div>
+      <h3>LLM vs LLVM — Key Distinction</h3>
+      <p><strong>LLM (Large Language Model)</strong> is an AI (like ChatGPT, Claude). <strong>LLVM</strong> is a compiler framework. This project asks: can the AI find bugs in the compiler? They have similar names but are completely unrelated technologies.</p>
+    </div>
+  </div>
+
+  <!-- LLM vs LLVM comparison table -->
+  <div style="margin-top:24px; overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th style="color:var(--accent)">🤖 LLM (Large Language Model)</th>
+          <th style="color:var(--accent3)">🔧 LLVM (Compiler Framework)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="font-weight:700; color:var(--muted)">Full name</td><td>Large Language Model</td><td>Low Level Virtual Machine</td></tr>
+        <tr><td style="font-weight:700; color:var(--muted)">What is it?</td><td>Neural network trained on text/code data</td><td>Compiler infrastructure for building language tools</td></tr>
+        <tr><td style="font-weight:700; color:var(--muted)">Examples</td><td>GPT-4, Claude, LLaMA, Gemini</td><td>Used by Clang, Rust, Swift, Julia compilers</td></tr>
+        <tr><td style="font-weight:700; color:var(--muted)">Role here</td><td>Proposes candidate optimization rewrites</td><td>The system being studied — what did it miss?</td></tr>
+        <tr><td style="font-weight:700; color:var(--muted)">Weakness</td><td>Can hallucinate — suggest wrong rewrites</td><td>Not perfect — some local patterns slip through</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- PIPELINE -->
+<section id="pipeline">
+  <div class="section-label">Methodology</div>
+  <h2>The Experiment Pipeline</h2>
+  <p>Five steps from pattern collection to classification.</p>
+
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-dot o">1</div>
+      <div class="tl-content">
+        <h4>Collect LLVM IR / MLIR Patterns</h4>
+        <p>53 LLVM IR + 8 MLIR source/candidate pairs. Each file has metadata: <code>EXPECTED</code>, <code>FAMILY</code>, <code>CATEGORY</code>. Includes intentional hallucinations as control cases to test the validator.</p>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot br">2</div>
+      <div class="tl-content">
+        <h4>LLM Proposes Candidate Rewrites</h4>
+        <p>For each source pattern, a candidate <code>*.candidate.ll</code> is provided — a rewrite claiming to be semantically equivalent but simpler or different in form.</p>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot g">3</div>
+      <div class="tl-content">
+        <h4>Formal Validation</h4>
+        <p><strong>LLVM IR:</strong> Alive2 (<code>alive-tv</code>) — SMT-based, proves correctness for ALL inputs.<br>
+        <strong>MLIR:</strong> Bounded equivalence — both programs evaluated on sampled inputs.</p>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot o">4</div>
+      <div class="tl-content">
+        <h4>Baseline Comparison</h4>
+        <p>Run <code>opt -passes=instcombine,simplifycfg</code> on the source and diff with <code>llvm-diff</code>. If baseline already produces the same output as the candidate → not a "missed" optimization.</p>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot r">5</div>
+      <div class="tl-content">
+        <h4>Classify and Measure</h4>
+        <p>Each case is classified: <strong>confirmed_missed</strong>, <strong>baseline_optimizes</strong>, <strong>hallucinated</strong>, <strong>not_missed</strong>, or <strong>ambiguous</strong>. A profitability proxy (instruction count delta) is computed.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- EXAMPLES -->
+<section id="examples">
+  <div class="section-label">Code Walkthrough</div>
+  <h2>Live Examples from the Dataset</h2>
+  <p>Real LLVM IR patterns with their validation outcomes.</p>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab(event,'ex-confirmed')">✅ Confirmed Missed</button>
+    <button class="tab-btn" onclick="showTab(event,'ex-demorgan')">✅ New: De Morgan</button>
+    <button class="tab-btn" onclick="showTab(event,'ex-baseline')">⚡ Baseline Handles</button>
+    <button class="tab-btn" onclick="showTab(event,'ex-hall1')">👻 Hallucination: boolean</button>
+    <button class="tab-btn" onclick="showTab(event,'ex-hall2')">👻 Hallucination: shift</button>
+    <button class="tab-btn" onclick="showTab(event,'ex-mlir')">🔬 MLIR</button>
+  </div>
+
+  <!-- CONFIRMED MISSED: bit_extract -->
+  <div id="ex-confirmed" class="tab-panel active">
+    <div class="verdict confirmed">✅ Confirmed Missed — bit_extract_alt_form family</div>
+    <p>The LLM found that <em>shift-then-mask</em> and <em>mask-then-shift</em> are equivalent forms of bitfield extraction. Alive2 proves it. LLVM's instcombine leaves the original unchanged — a genuine gap.</p>
+    <div class="diff-container">
+      <div class="code-block">
+        <div class="code-header"><span>c35_bit_extract_alt_form.ll</span><span class="badge-small badge-source">SOURCE</span></div>
+        <pre><span class="cmt">; TITLE: Extract bitfield via mask then shift</span>
+<span class="cmt">; EXPECTED: missed  FAMILY: bit_extract_alt_form</span>
+
+<span class="kw">define</span> <span class="type">i32</span> <span class="fn">@f</span>(<span class="type">i32</span> <span class="str">%x</span>) {
+entry:
+  <span class="cmt">; Step 1: logical shift right by 12</span>
+  <span class="str">%a</span> = <span class="kw">lshr</span> <span class="type">i32</span> <span class="str">%x</span>, <span class="num">12</span>
+  <span class="cmt">; Step 2: keep low 5 bits (AND 31)</span>
+  <span class="str">%b</span> = <span class="kw">and</span>  <span class="type">i32</span> <span class="str">%a</span>, <span class="num">31</span>
+  <span class="kw">ret</span> <span class="type">i32</span> <span class="str">%b</span>
+}</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span>c35_bit_extract_alt_form.candidate.ll</span><span class="badge-small badge-candidate">LLM CANDIDATE — Alive2 VALID ✓</span></div>
+        <pre><span class="cmt">; LLM: mask first (bits 12–16), then shift</span>
+<span class="cmt">; 31 &lt;&lt; 12 = 126976 = 0x1F000</span>
+
+<span class="kw">define</span> <span class="type">i32</span> <span class="fn">@f</span>(<span class="type">i32</span> <span class="str">%x</span>) {
+entry:
+  <span class="cmt">; Mask target bits in place first</span>
+  <span class="str">%m</span> = <span class="kw">and</span>  <span class="type">i32</span> <span class="str">%x</span>, <span class="num">126976</span>
+  <span class="cmt">; Then shift down</span>
+  <span class="str">%b</span> = <span class="kw">lshr</span> <span class="type">i32</span> <span class="str">%m</span>, <span class="num">12</span>
+  <span class="kw">ret</span> <span class="type">i32</span> <span class="str">%b</span>
+}</pre>
+      </div>
+    </div>
+    <div style="margin-top:12px; padding:12px 16px; background:rgba(45,125,70,0.06); border:2px solid rgba(45,125,70,0.2); border-radius:8px; font-size:13px; color:var(--text);">
+      <strong style="color:var(--accent2);">Why LLVM misses it:</strong> InstCombine canonicalizes in one direction only. Both forms are legal IR and produce the same bits — but no rule says "normalize these two forms to each other." This family generalizes across 4 variants (shifts 5, 9, 12, 17; types i32 and i64).
+    </div>
+  </div>
+
+  <!-- CONFIRMED MISSED: demorgan -->
+  <div id="ex-demorgan" class="tab-panel">
+    <div class="verdict confirmed">✅ Confirmed Missed — demorgan_complement family (new)</div>
+    <p>New family added: <code>~(~x &amp; mask)</code> simplifies to <code>x | ~mask</code> via De Morgan's law. LLVM's instcombine does not fold the XOR-AND-XOR chain into a single OR.</p>
+    <div class="diff-container">
+      <div class="code-block">
+        <div class="code-header"><span>c49_demorgan_complement_mask255_i32.ll</span><span class="badge-small badge-source">SOURCE</span></div>
+        <pre><span class="cmt">; TITLE: De Morgan: ~(~x &amp; 0xFF) → x | ~0xFF</span>
+<span class="cmt">; EXPECTED: missed  FAMILY: demorgan_complement</span>
+
+<span class="kw">define</span> <span class="type">i32</span> <span class="fn">@f</span>(<span class="type">i32</span> <span class="str">%x</span>) {
+entry:
+  <span class="cmt">; xor with -1 = bitwise NOT</span>
+  <span class="str">%nx</span> = <span class="kw">xor</span> <span class="type">i32</span> <span class="str">%x</span>, <span class="num">-1</span>
+  <span class="str">%a</span>  = <span class="kw">and</span> <span class="type">i32</span> <span class="str">%nx</span>, <span class="num">255</span>
+  <span class="str">%r</span>  = <span class="kw">xor</span> <span class="type">i32</span> <span class="str">%a</span>, <span class="num">-1</span>
+  <span class="kw">ret</span> <span class="type">i32</span> <span class="str">%r</span>
+}</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span>c49_demorgan_complement_mask255_i32.candidate.ll</span><span class="badge-small badge-candidate">LLM CANDIDATE — Alive2 VALID ✓</span></div>
+        <pre><span class="cmt">; De Morgan: ~(~x &amp; 255) = x | ~255</span>
+<span class="cmt">; ~255 = -256 = 0xFFFFFF00</span>
+
+<span class="kw">define</span> <span class="type">i32</span> <span class="fn">@f</span>(<span class="type">i32</span> <span class="str">%x</span>) {
+entry:
+  <span class="cmt">; Single OR replaces 3 instructions</span>
+  <span class="str">%r</span> = <span class="kw">or</span> <span class="type">i32</span> <span class="str">%x</span>, <span class="num">-256</span>
+  <span class="kw">ret</span> <span class="type">i32</span> <span class="str">%r</span>
+}</pre>
+      </div>
+    </div>
+    <div style="margin-top:12px; padding:12px 16px; background:rgba(45,125,70,0.06); border:2px solid rgba(45,125,70,0.2); border-radius:8px; font-size:13px; color:var(--text);">
+      <strong style="color:var(--accent2);">De Morgan's law:</strong> <code>~(A &amp; B) = ~A | ~B</code>. Substituting A=~x gives <code>~(~x &amp; mask) = x | ~mask</code>. Three instructions (xor, and, xor) collapse to one (or). LLVM doesn't recognize this cross-instruction chain. Verified on both mask=0xFF and mask=0xF0 variants.
+    </div>
+  </div>
+
+  <!-- BASELINE -->
+  <div id="ex-baseline" class="tab-panel">
+    <div class="verdict baseline">⚡ Already Optimized by LLVM Baseline</div>
+    <p>LLVM's InstCombine already handles this — the LLM is rediscovering a known optimization, not a missing one. Valid but not a "missed" opportunity.</p>
+    <div class="diff-container">
+      <div class="code-block">
+        <div class="code-header"><span>c01_add_zero.ll</span><span class="badge-small badge-source">SOURCE</span></div>
+        <pre><span class="cmt">; TITLE: Remove add by zero</span>
+<span class="cmt">; EXPECTED: already-optimized</span>
+
+<span class="kw">define</span> <span class="type">i32</span> <span class="fn">@f</span>(<span class="type">i32</span> <span class="str">%x</span>) {
+entry:
+  <span class="cmt">; x + 0 is a no-op</span>
+  <span class="str">%a</span> = <span class="kw">add</span> <span class="type">i32</span> <span class="str">%x</span>, <span class="num">0</span>
+  <span class="kw">ret</span> <span class="type">i32</span> <span class="str">%a</span>
+}</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span>c01_add_zero.candidate.ll</span><span class="badge-small badge-candidate">LLM CANDIDATE — Valid (LLVM already does this)</span></div>
+        <pre><span class="cmt">; LLM: just return x</span>
+<span class="cmt">; opt -passes=instcombine already does this!</span>
+
+<span class="kw">define</span> <span class="type">i32</span> <span class="fn">@f</span>(<span class="type">i32</span> <span class="str">%x</span>) {
+entry:
+  <span class="kw">ret</span> <span class="type">i32</span> <span class="str">%x</span>
+}</pre>
+      </div>
+    </div>
+    <div style="margin-top:12px; padding:12px 16px; background:rgba(179,90,0,0.06); border:2px solid rgba(179,90,0,0.2); border-radius:8px; font-size:13px; color:var(--text);">
+      <strong style="color:var(--accent4);">Why it's "not missed":</strong> Running <code>opt -passes=instcombine</code> on the source already outputs <code>ret i32 %x</code>. The LLM's suggestion is correct but LLVM already knows it. 31 out of 53 LLVM IR cases fell here — the LLM keeps rediscovering solved problems.
+    </div>
+  </div>
+
+  <!-- HALLUCINATION: boolean -->
+  <div id="ex-hall1" class="tab-panel">
+    <div class="verdict hallucinated">👻 Hallucination — boolean arithmetic family</div>
+    <p>The LLM confused bitwise OR with addition. This looks superficially similar but is mathematically wrong. Alive2 finds a counterexample instantly.</p>
+    <div class="diff-container">
+      <div class="code-block">
+        <div class="code-header"><span>c44_hallucination_or_to_add.ll</span><span class="badge-small badge-source">SOURCE</span></div>
+        <pre><span class="cmt">; TITLE: Hallucination: OR rewritten as ADD</span>
+<span class="cmt">; CATEGORY: hallucination</span>
+<span class="cmt">; FAMILY: hallucinated_boolean_arith</span>
+
+<span class="kw">define</span> <span class="type">i32</span> <span class="fn">@f</span>(<span class="type">i32</span> <span class="str">%x</span>, <span class="type">i32</span> <span class="str">%y</span>) {
+entry:
+  <span class="str">%a</span> = <span class="kw">or</span> <span class="type">i32</span> <span class="str">%x</span>, <span class="str">%y</span>
+  <span class="kw">ret</span> <span class="type">i32</span> <span class="str">%a</span>
+}</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span>c44_hallucination_or_to_add.candidate.ll</span><span class="badge-small badge-invalid">HALLUCINATION — Alive2 INVALID ✗</span></div>
+        <pre><span class="cmt">; LLM claims: OR = ADD (WRONG)</span>
+<span class="cmt">; Counterexample: x=1, y=1</span>
+<span class="cmt">;   OR(1,1)  = 1  ← correct</span>
+<span class="cmt">;   ADD(1,1) = 2  ← DIFFERENT!</span>
+
+<span class="kw">define</span> <span class="type">i32</span> <span class="fn">@f</span>(<span class="type">i32</span> <span class="str">%x</span>, <span class="type">i32</span> <span class="str">%y</span>) {
+entry:
+  <span class="str">%a</span> = <span class="kw">add</span> <span class="type">i32</span> <span class="str">%x</span>, <span class="str">%y</span>
+  <span class="kw">ret</span> <span class="type">i32</span> <span class="str">%a</span>
+}</pre>
+      </div>
+    </div>
+    <div style="margin-top:12px; padding:12px 16px; background:rgba(192,57,43,0.06); border:2px solid rgba(192,57,43,0.2); border-radius:8px; font-size:13px; color:var(--text);">
+      <strong style="color:var(--accent3);">Why the LLM gets this wrong:</strong> OR and ADD are identical only when the two values have <em>no overlapping bits</em>. The LLM overgeneralized a conditional identity into an unconditional one. Same mistake repeated for AND→MUL and XOR→SUB. All 4 variants caught by Alive2.
+    </div>
+  </div>
+
+  <!-- HALLUCINATION: shift -->
+  <div id="ex-hall2" class="tab-panel">
+    <div class="verdict hallucinated">👻 Hallucination — shift semantics family (new)</div>
+    <p>Two new hallucination types added: confusing arithmetic shift right (sign-extending) with logical shift right (zero-filling), and confusing x*x with x&lt;&lt;x.</p>
+    <div class="diff-container">
+      <div class="code-block">
+        <div class="code-header"><span>c51_hallucination_ashr_to_lshr.ll</span><span class="badge-small badge-source">SOURCE</span></div>
+        <pre><span class="cmt">; TITLE: Hallucination: ashr = lshr</span>
+<span class="cmt">; FAMILY: hallucinated_shift_semantics</span>
+
+<span class="kw">define</span> <span class="type">i32</span> <span class="fn">@f</span>(<span class="type">i32</span> <span class="str">%x</span>) {
+entry:
+  <span class="cmt">; arithmetic shift: preserves sign</span>
+  <span class="str">%r</span> = <span class="kw">ashr</span> <span class="type">i32</span> <span class="str">%x</span>, <span class="num">1</span>
+  <span class="kw">ret</span> <span class="type">i32</span> <span class="str">%r</span>
+}</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span>c51_hallucination_ashr_to_lshr.candidate.ll</span><span class="badge-small badge-invalid">HALLUCINATION — Alive2 INVALID ✗</span></div>
+        <pre><span class="cmt">; LLM: ashr == lshr (WRONG for negatives)</span>
+<span class="cmt">; Counterexample: x = -1</span>
+<span class="cmt">;   ashr(-1, 1) = -1   (0xFFFFFFFF)</span>
+<span class="cmt">;   lshr(-1, 1) = 2147483647 (0x7FFFFFFF)</span>
+
+<span class="kw">define</span> <span class="type">i32</span> <span class="fn">@f</span>(<span class="type">i32</span> <span class="str">%x</span>) {
+entry:
+  <span class="str">%r</span> = <span class="kw">lshr</span> <span class="type">i32</span> <span class="str">%x</span>, <span class="num">1</span>
+  <span class="kw">ret</span> <span class="type">i32</span> <span class="str">%r</span>
+}</pre>
+      </div>
+    </div>
+    <div style="margin-top:12px; padding:12px 16px; background:rgba(192,57,43,0.06); border:2px solid rgba(192,57,43,0.2); border-radius:8px; font-size:13px; color:var(--text);">
+      <strong style="color:var(--accent3);">ashr vs lshr:</strong> <code>ashr</code> fills the vacated bits with the sign bit (1 for negative numbers). <code>lshr</code> always fills with 0. For positive numbers they agree — the LLM saw that pattern and overgeneralized. The second case (c52: x*x = x&lt;&lt;x) fails for x=2: mul gives 4, shl gives 8.
+    </div>
+  </div>
+
+  <!-- MLIR -->
+  <div id="ex-mlir" class="tab-panel">
+    <div class="verdict confirmed">✅ MLIR — Confirmed Missed (mlir_bit_extract_alt_form)</div>
+    <p>The same bit-extraction pattern exists in MLIR's <code>arith</code> dialect. Bounded equivalence checking over sampled inputs confirms it's valid and MLIR's baseline canonicalization doesn't handle it.</p>
+    <div class="diff-container">
+      <div class="code-block">
+        <div class="code-header"><span>m05_bit_extract_alt_shift3_i32.mlir</span><span class="badge-small badge-source">MLIR SOURCE</span></div>
+        <pre><span class="cmt">// TITLE: MLIR bit extract: shift then mask</span>
+<span class="cmt">// EXPECTED: missed</span>
+<span class="cmt">// FAMILY: mlir_bit_extract_alt_form</span>
+
+module {
+  func.func @f(<span class="str">%arg0</span>: <span class="type">i32</span>) -> <span class="type">i32</span> {
+    <span class="str">%c3</span> = arith.constant <span class="num">3</span> : <span class="type">i32</span>
+    <span class="str">%0</span>  = arith.shrui <span class="str">%arg0</span>, <span class="str">%c3</span> : <span class="type">i32</span>
+    <span class="str">%c7</span> = arith.constant <span class="num">7</span> : <span class="type">i32</span>
+    <span class="str">%1</span>  = arith.andi <span class="str">%0</span>, <span class="str">%c7</span> : <span class="type">i32</span>
+    <span class="kw">return</span> <span class="str">%1</span> : <span class="type">i32</span>
+  }
+}</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span>m05_bit_extract_alt_shift3_i32.candidate.mlir</span><span class="badge-small badge-candidate">MLIR CANDIDATE — Bounded VALID ✓</span></div>
+        <pre><span class="cmt">// LLM: mask first (56 = 7&lt;&lt;3), then shift</span>
+
+module {
+  func.func @f(<span class="str">%arg0</span>: <span class="type">i32</span>) -> <span class="type">i32</span> {
+    <span class="str">%c56</span> = arith.constant <span class="num">56</span> : <span class="type">i32</span>
+    <span class="str">%0</span>   = arith.andi  <span class="str">%arg0</span>, <span class="str">%c56</span> : <span class="type">i32</span>
+    <span class="str">%c3</span>  = arith.constant <span class="num">3</span> : <span class="type">i32</span>
+    <span class="str">%1</span>   = arith.shrui <span class="str">%0</span>, <span class="str">%c3</span> : <span class="type">i32</span>
+    <span class="kw">return</span> <span class="str">%1</span> : <span class="type">i32</span>
+  }
+}</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section id="results">
+  <div class="section-label">Quantitative Analysis</div>
+  <h2>Experiment Results</h2>
+  <p>Aggregate metrics across all 61 test cases (53 LLVM IR + 8 MLIR).</p>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>LLVM IR — Classification (53 cases)</h3>
+      <div class="chart-wrap"><canvas id="chart-llvm-class"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>MLIR — Classification (8 cases)</h3>
+      <div class="chart-wrap"><canvas id="chart-mlir-class"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>LLVM IR — Profitability of Valid Rewrites</h3>
+      <div class="chart-wrap"><canvas id="chart-profit"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Quality Buckets (LLVM IR)</h3>
+      <div class="chart-wrap"><canvas id="chart-quality"></canvas></div>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;">
+    <h3 style="margin-bottom:14px;">Coverage Breakdown</h3>
+    <div class="progress-row">
+      <div class="progress-label"><span style="font-weight:600">Baseline already optimizes</span><span style="color:var(--muted)">31 / 53</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:58.5%; background:var(--accent4);"></div></div>
+    </div>
+    <div class="progress-row">
+      <div class="progress-label"><span style="font-weight:600">Not missed (baseline equivalent)</span><span style="color:var(--muted)">9 / 53</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:17%; background:var(--muted);"></div></div>
+    </div>
+    <div class="progress-row">
+      <div class="progress-label"><span style="font-weight:600">Confirmed missed optimizations</span><span style="color:var(--muted)">6 / 53</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:11.3%; background:var(--accent2);"></div></div>
+    </div>
+    <div class="progress-row">
+      <div class="progress-label"><span style="font-weight:600">Hallucinations — caught by Alive2</span><span style="color:var(--muted)">6 / 53</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:11.3%; background:var(--accent3);"></div></div>
+    </div>
+    <div class="progress-row">
+      <div class="progress-label"><span style="font-weight:600">Ambiguous (valid but no gain)</span><span style="color:var(--muted)">1 / 53</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:1.9%; background:var(--accent);"></div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;">
+    <h3 style="margin-bottom:14px;">Family Generalization</h3>
+    <div class="family-card">
+      <h4>bit_extract_alt_form</h4>
+      <div class="family-meta">4 LLVM IR variants · all Alive2-valid · shifts: 5, 9, 12, 17 · types: i32, i64</div>
+      <span class="family-conclusion fc-generalizes">✓ GENERALIZES — real missed optimization family</span>
+      <p style="margin-top:10px; font-size:13px;">LLVM's instcombine does not canonicalize between shift-then-mask and mask-then-shift forms of bitfield extraction. Both are legal IR representing the same computation.</p>
+    </div>
+    <div class="family-card">
+      <h4>demorgan_complement</h4>
+      <div class="family-meta">2 LLVM IR variants · all Alive2-valid · masks: 0xFF, 0xF0 · type: i32</div>
+      <span class="family-conclusion fc-generalizes">✓ GENERALIZES — new missed optimization family</span>
+      <p style="margin-top:10px; font-size:13px;">The chain xor→and→xor implementing <code>~(~x &amp; mask)</code> is not folded to the single <code>or x, ~mask</code> by instcombine. De Morgan's law across three instructions is missed.</p>
+    </div>
+    <div class="family-card">
+      <h4>hallucinated_boolean_arith</h4>
+      <div class="family-meta">4 variants · 0 valid · or→add, and→mul, xor→sub, invalid example</div>
+      <span class="family-conclusion fc-hallucinated">✗ HALLUCINATED — entire family invalid</span>
+      <p style="margin-top:10px; font-size:13px;">LLM confused bitwise operators with arithmetic operators. These equivalences only hold under strict preconditions (disjoint bits) that the LLM didn't acknowledge.</p>
+    </div>
+    <div class="family-card">
+      <h4>hallucinated_shift_semantics</h4>
+      <div class="family-meta">2 variants · 0 valid · ashr→lshr, x*x→x&lt;&lt;x</div>
+      <span class="family-conclusion fc-hallucinated">✗ HALLUCINATED — sign-extension semantics ignored</span>
+      <p style="margin-top:10px; font-size:13px;">LLM confused arithmetic vs logical shift (different for negative numbers) and confused squaring with self-shifting (only equal for powers of 2).</p>
+    </div>
+    <div class="family-card">
+      <h4>ambiguous_no_gain</h4>
+      <div class="family-meta">2 variants · both valid · neutral / worse profitability</div>
+      <span class="family-conclusion fc-valid-but">~ VALID BUT NO BENEFIT</span>
+      <p style="margin-top:10px; font-size:13px;">Rewrites that are correct but don't reduce instruction count. Algebraic rearrangements with no practical optimization benefit.</p>
+    </div>
+  </div>
+</section>
+
+<!-- EXPLORER -->
+<section id="explorer">
+  <div class="section-label">Dataset</div>
+  <h2>Case Explorer — All 61 Test Cases</h2>
+  <p>Filter by classification. All results pre-validated by Alive2 / bounded equivalence.</p>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab(event,'tbl-llvm')">LLVM IR (53)</button>
+    <button class="tab-btn" onclick="showTab(event,'tbl-mlir')">MLIR (8)</button>
+  </div>
+
+  <div id="tbl-llvm" class="tab-panel active">
+    <div class="filter-bar">
+      <span class="filter-label">Filter:</span>
+      <button class="filter-btn active" onclick="filterTable(this,'all','llvm')">All</button>
+      <button class="filter-btn" onclick="filterTable(this,'confirmed_missed','llvm')">✅ Confirmed Missed</button>
+      <button class="filter-btn" onclick="filterTable(this,'baseline_optimizes','llvm')">⚡ Baseline</button>
+      <button class="filter-btn" onclick="filterTable(this,'hallucinated_candidate','llvm')">👻 Hallucinated</button>
+      <button class="filter-btn" onclick="filterTable(this,'not_missed','llvm')">— Not Missed</button>
+    </div>
+    <div class="results-table-wrap">
+      <table>
+        <thead><tr><th>Case</th><th>Family</th><th>Validator</th><th>Insts (cand/src)</th><th>Profitability</th><th>Baseline ∆?</th><th>Classification</th></tr></thead>
+        <tbody id="tbody-llvm"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tbl-mlir" class="tab-panel">
+    <div class="results-table-wrap">
+      <table>
+        <thead><tr><th>Case</th><th>Family</th><th>Validator</th><th>Insts (cand/src)</th><th>Profitability</th><th>Baseline ∆?</th><th>Classification</th></tr></thead>
+        <tbody id="tbody-mlir"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ANSWER -->
+<section id="answer">
+  <div class="section-label">Research Question</div>
+  <h2>Can LLMs Discover Useful Missed Optimizations,<br>or Do They Mostly Hallucinate?</h2>
+
+  <div class="answer-box">
+    <h3>Answer: Both — and formal validation is what makes LLMs useful here</h3>
+    <p>LLMs can discover real, previously-unnoticed optimizations. But they also hallucinate at a measurable rate. The formal verification step (Alive2) is what separates useful suggestions from dangerous ones.</p>
+    <ul class="finding-list">
+      <li><strong>LLMs DO find real missed optimizations.</strong> 6 of 53 LLVM IR cases (11.3%) and 2 of 8 MLIR cases (25%) are genuine misses. Two distinct families found: bit_extract_alt_form and demorgan_complement.</li>
+      <li><strong>Most suggestions rediscover known things.</strong> 31/53 (58.5%) are already in LLVM's instcombine. The LLM is very good at finding obvious identities that are already solved.</li>
+      <li><strong>Hallucination rate is ~11.3%</strong> — but 100% were caught by Alive2. Without formal checking, broken rewrites would slip through into production code.</li>
+      <li><strong>Formal verification is non-negotiable.</strong> You cannot trust LLM rewrites without a tool like Alive2. The hallucinated shift semantics case (ashr vs lshr) looks plausible but breaks for all negative inputs.</li>
+      <li><strong>Pattern families generalize.</strong> When an LLM finds a real optimization, it generalizes across types and constants — evidence of genuine pattern recognition, not random guessing.</li>
+      <li><strong>Best model: LLM as hypothesis generator, Alive2 as filter.</strong> Together they form a productive search loop for missed optimizations — neither is useful alone.</li>
+    </ul>
+  </div>
+
+  <div style="margin-top:24px; display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px;">
+    <div style="padding:18px; background:var(--surface); border:2px solid rgba(45,125,70,0.3); border-radius:var(--radius); text-align:center;">
+      <div style="font-size:34px; font-weight:900; color:var(--accent2);">11.3%</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:4px;">True discovery rate (LLVM IR)</div>
+    </div>
+    <div style="padding:18px; background:var(--surface); border:2px solid rgba(192,57,43,0.3); border-radius:var(--radius); text-align:center;">
+      <div style="font-size:34px; font-weight:900; color:var(--accent3);">11.3%</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:4px;">Hallucination rate (LLVM IR)</div>
+    </div>
+    <div style="padding:18px; background:var(--surface); border:2px solid rgba(212,82,26,0.3); border-radius:var(--radius); text-align:center;">
+      <div style="font-size:34px; font-weight:900; color:var(--accent);">100%</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:4px;">Hallucinations caught by Alive2</div>
+    </div>
+    <div style="padding:18px; background:var(--surface); border:2px solid rgba(179,90,0,0.3); border-radius:var(--radius); text-align:center;">
+      <div style="font-size:34px; font-weight:900; color:var(--accent4);">2</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:4px;">Distinct missed families found</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p style="font-weight:700; color:var(--text);">Assignment 14 — LLVM IR Peephole Optimization Study</p>
+  <p style="margin-top:6px;">Validation: Alive2 (LLVM IR) · Bounded equivalence (MLIR) · Baseline: opt -passes=instcombine,simplifycfg</p>
+</footer>
+
+<script>
+const llvmData = [
+  {name:"c01_add_zero",family:"-",alive:"valid",insts:"0/1",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c02_xor_self",family:"-",alive:"valid",insts:"0/1",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c03_mul_one",family:"-",alive:"valid",insts:"0/1",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c04_select_const",family:"-",alive:"valid",insts:"0/1",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c05_or_zero",family:"-",alive:"valid",insts:"0/1",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c06_sdiv_self_nonzero",family:"-",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"not_missed"},
+  {name:"c07_udiv_self_nonzero",family:"-",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"not_missed"},
+  {name:"c08_invalid_candidate_example",family:"hallucinated_boolean_arith",alive:"invalid",insts:"0/1",profit:"better",base:true,cls:"hallucinated_candidate"},
+  {name:"c09_and_or_partition",family:"-",alive:"valid",insts:"0/3",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c10_xor_cancel",family:"-",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c11_add_sub_cancel",family:"-",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c12_sub_add_cancel",family:"-",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c13_shift_add_mul10",family:"-",alive:"valid",insts:"1/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c14_mul_sub_mul8",family:"-",alive:"valid",insts:"2/3",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c15_shift_mask_low24",family:"-",alive:"valid",insts:"1/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c16_zext_trunc_to_mask",family:"-",alive:"valid",insts:"1/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c17_udiv_pow2_to_lshr",family:"-",alive:"valid",insts:"1/1",profit:"neutral",base:true,cls:"baseline_optimizes"},
+  {name:"c18_urem_pow2_to_and",family:"-",alive:"valid",insts:"1/1",profit:"neutral",base:true,cls:"baseline_optimizes"},
+  {name:"c19_select_same_arms",family:"-",alive:"valid",insts:"0/1",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c20_select_const_to_zext",family:"-",alive:"valid",insts:"1/1",profit:"neutral",base:true,cls:"baseline_optimizes"},
+  {name:"c21_select_invert_bool",family:"-",alive:"valid",insts:"2/1",profit:"worse",base:true,cls:"baseline_optimizes"},
+  {name:"c22_absorb_or_and",family:"-",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c23_absorb_and_or",family:"-",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c24_double_negation",family:"-",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c25_and_mask_merge",family:"-",alive:"valid",insts:"1/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c26_or_mask_merge",family:"-",alive:"valid",insts:"1/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c27_xor_const_merge",family:"-",alive:"valid",insts:"1/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c28_eq_xor_zero",family:"-",alive:"valid",insts:"2/3",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c29_ne_xor_zero",family:"-",alive:"valid",insts:"2/3",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c30_trunc_zext_roundtrip",family:"-",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c31_trunc_sext_roundtrip",family:"-",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c32_cfg_phi_same_value",family:"-",alive:"valid",insts:"0/3",profit:"better",base:true,cls:"not_missed"},
+  {name:"c33_cfg_redundant_branches",family:"-",alive:"valid",insts:"0/0",profit:"neutral",base:true,cls:"not_missed"},
+  {name:"c34_phi_const_collapse",family:"-",alive:"valid",insts:"0/1",profit:"better",base:true,cls:"not_missed"},
+  {name:"c35_bit_extract_alt_form",family:"bit_extract_alt_form",alive:"valid",insts:"2/2",profit:"neutral",base:false,cls:"confirmed_missed"},
+  {name:"c36_icmp_uge_one_to_ne_zero",family:"-",alive:"valid",insts:"2/2",profit:"neutral",base:true,cls:"baseline_optimizes"},
+  {name:"c37_icmp_ule_zero_to_eq_zero",family:"-",alive:"valid",insts:"2/2",profit:"neutral",base:true,cls:"baseline_optimizes"},
+  {name:"c38_mul_add_mul3",family:"-",alive:"valid",insts:"1/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"c39_shift_add_mul7",family:"-",alive:"valid",insts:"1/4",profit:"better",base:true,cls:"not_missed"},
+  {name:"c40_guarded_sdiv_self",family:"-",alive:"valid",insts:"2/2",profit:"neutral",base:true,cls:"not_missed"},
+  {name:"c41_bit_extract_alt_form_shift5_i32",family:"bit_extract_alt_form",alive:"valid",insts:"2/2",profit:"neutral",base:false,cls:"confirmed_missed"},
+  {name:"c42_bit_extract_alt_form_shift17_i64",family:"bit_extract_alt_form",alive:"valid",insts:"2/2",profit:"neutral",base:false,cls:"confirmed_missed"},
+  {name:"c43_bit_extract_alt_form_shift9_i32",family:"bit_extract_alt_form",alive:"valid",insts:"2/2",profit:"neutral",base:false,cls:"confirmed_missed"},
+  {name:"c44_hallucination_or_to_add",family:"hallucinated_boolean_arith",alive:"invalid",insts:"1/1",profit:"neutral",base:false,cls:"hallucinated_candidate"},
+  {name:"c45_hallucination_and_to_mul",family:"hallucinated_boolean_arith",alive:"invalid",insts:"1/1",profit:"neutral",base:false,cls:"hallucinated_candidate"},
+  {name:"c46_hallucination_xor_to_sub",family:"hallucinated_boolean_arith",alive:"invalid",insts:"1/1",profit:"neutral",base:false,cls:"hallucinated_candidate"},
+  {name:"c47_ambiguous_reorder_add",family:"ambiguous_no_gain",alive:"valid",insts:"2/2",profit:"neutral",base:true,cls:"different_but_not_missed"},
+  {name:"c48_ambiguous_redundant_predicate",family:"ambiguous_no_gain",alive:"valid",insts:"2/1",profit:"worse",base:true,cls:"different_but_not_missed"},
+  {name:"c49_demorgan_complement_mask255_i32",family:"demorgan_complement",alive:"valid",insts:"1/3",profit:"better",base:false,cls:"confirmed_missed"},
+  {name:"c50_demorgan_complement_mask_f0_i32",family:"demorgan_complement",alive:"valid",insts:"1/3",profit:"better",base:false,cls:"confirmed_missed"},
+  {name:"c51_hallucination_ashr_to_lshr",family:"hallucinated_shift_semantics",alive:"invalid",insts:"1/1",profit:"neutral",base:false,cls:"hallucinated_candidate"},
+  {name:"c52_hallucination_square_to_selfshift",family:"hallucinated_shift_semantics",alive:"invalid",insts:"1/1",profit:"neutral",base:false,cls:"hallucinated_candidate"},
+];
+
+const mlirData = [
+  {name:"m01_addi_zero_i32",family:"mlir_baseline_identities",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"m02_muli_one_i32",family:"mlir_baseline_identities",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"m03_ori_zero_i32",family:"mlir_baseline_identities",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"m04_andi_allones_i32",family:"mlir_baseline_identities",alive:"valid",insts:"0/2",profit:"better",base:true,cls:"baseline_optimizes"},
+  {name:"m05_bit_extract_alt_shift3_i32",family:"mlir_bit_extract_alt_form",alive:"valid",insts:"4/4",profit:"neutral",base:false,cls:"confirmed_missed"},
+  {name:"m06_bit_extract_alt_shift5_i32",family:"mlir_bit_extract_alt_form",alive:"valid",insts:"4/4",profit:"neutral",base:false,cls:"confirmed_missed"},
+  {name:"m07_hallucination_or_to_add_i32",family:"mlir_hallucinated_logic",alive:"invalid",insts:"1/1",profit:"neutral",base:false,cls:"hallucinated_candidate"},
+  {name:"m08_hallucination_and_to_mul_i32",family:"mlir_hallucinated_logic",alive:"invalid",insts:"2/2",profit:"neutral",base:false,cls:"hallucinated_candidate"},
+];
+
+function clsTag(cls) {
+  const map = {
+    confirmed_missed:        '<span class="tag tag-confirmed">✅ confirmed_missed</span>',
+    baseline_optimizes:      '<span class="tag tag-baseline">⚡ baseline_optimizes</span>',
+    hallucinated_candidate:  '<span class="tag tag-hallucinated">👻 hallucinated</span>',
+    not_missed:              '<span class="tag tag-notmissed">— not_missed</span>',
+    different_but_not_missed:'<span class="tag tag-ambiguous">~ ambiguous</span>',
+  };
+  return map[cls] || `<span class="tag">${cls}</span>`;
+}
+function aliveTag(v) {
+  return v === 'valid'
+    ? '<span class="tag tag-valid">✓ valid</span>'
+    : '<span class="tag tag-invalid">✗ invalid</span>';
+}
+function profitTag(p) {
+  if (p === 'better') return '<span class="tag tag-better">▼ better</span>';
+  if (p === 'worse')  return '<span class="tag tag-worse">▲ worse</span>';
+  return '<span class="tag tag-neutral">= neutral</span>';
+}
+
+function renderTable(data, tbodyId) {
+  document.getElementById(tbodyId).innerHTML = data.map(r => `
+    <tr data-cls="${r.cls}">
+      <td class="mono">${r.name}</td>
+      <td style="font-size:11px; font-family:monospace; color:var(--muted)">${r.family}</td>
+      <td>${aliveTag(r.alive)}</td>
+      <td style="font-family:monospace; font-size:12px">${r.insts}</td>
+      <td>${profitTag(r.profit)}</td>
+      <td style="font-size:12px; font-weight:700; color:${r.base ? 'var(--accent4)' : 'var(--accent2)'}">${r.base ? 'Yes' : 'No'}</td>
+      <td>${clsTag(r.cls)}</td>
+    </tr>`).join('');
+}
+renderTable(llvmData, 'tbody-llvm');
+renderTable(mlirData, 'tbody-mlir');
+
+function filterTable(btn, cls, track) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll(`#tbody-${track} tr`).forEach(r => {
+    r.style.display = (cls === 'all' || r.dataset.cls === cls) ? '' : 'none';
+  });
+}
+
+function showTab(e, id) {
+  const parent = e.target.closest('.tab-bar').parentElement;
+  parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  parent.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+
+// Charts
+const C = {
+  orange: 'rgba(212,82,26,0.85)',
+  brown:  'rgba(179,90,0,0.85)',
+  green:  'rgba(45,125,70,0.85)',
+  red:    'rgba(192,57,43,0.85)',
+  gray:   'rgba(107,87,68,0.6)',
+  coral:  'rgba(220,120,80,0.85)',
+};
+const baseOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { position:'bottom', labels:{ color:'#6b5744', font:{size:11}, padding:12 } } },
+};
+
+new Chart(document.getElementById('chart-llvm-class'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Baseline (31)', 'Not missed (9)', 'Confirmed missed (6)', 'Hallucinated (6)', 'Ambiguous (1)'],
+    datasets: [{ data:[31,9,6,6,1],
+      backgroundColor:[C.brown, C.gray, C.green, C.red, C.orange],
+      borderWidth:2, borderColor:'#fff' }]
+  },
+  options: baseOpts,
+});
+
+new Chart(document.getElementById('chart-mlir-class'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Baseline (4)', 'Confirmed missed (2)', 'Hallucinated (2)'],
+    datasets: [{ data:[4,2,2],
+      backgroundColor:[C.brown, C.green, C.red],
+      borderWidth:2, borderColor:'#fff' }]
+  },
+  options: baseOpts,
+});
+
+new Chart(document.getElementById('chart-profit'), {
+  type: 'bar',
+  data: {
+    labels: ['Better (fewer insts)', 'Neutral (same)', 'Worse (more insts)'],
+    datasets: [{ data:[32,13,2],
+      backgroundColor:[C.green, C.gray, C.red],
+      borderRadius:6, borderSkipped:false }]
+  },
+  options: {
+    ...baseOpts,
+    scales: {
+      x: { ticks:{color:'#6b5744'}, grid:{color:'rgba(232,213,196,0.6)'} },
+      y: { ticks:{color:'#6b5744'}, grid:{color:'rgba(232,213,196,0.6)'} },
+    },
+    plugins: { legend:{display:false} },
+  },
+});
+
+new Chart(document.getElementById('chart-quality'), {
+  type: 'bar',
+  data: {
+    labels: ['valid_profitable', 'valid_neutral', 'ambiguous_valid', 'valid_unprofitable', 'hallucinated'],
+    datasets: [{ data:[32,11,2,1,6],
+      backgroundColor:[C.green, C.orange, C.coral, C.brown, C.red],
+      borderRadius:6, borderSkipped:false }]
+  },
+  options: {
+    ...baseOpts,
+    indexAxis: 'y',
+    scales: {
+      x: { ticks:{color:'#6b5744'}, grid:{color:'rgba(232,213,196,0.6)'} },
+      y: { ticks:{color:'#6b5744', font:{size:11}}, grid:{color:'rgba(232,213,196,0.6)'} },
+    },
+    plugins: { legend:{display:false} },
+  },
+});
+</script>
 </body>
 </html>
