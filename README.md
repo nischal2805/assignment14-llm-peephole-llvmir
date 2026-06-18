@@ -2,79 +2,254 @@
 
 ## Abstract
 
-This repository implements a controlled evaluation of LLM‑generated peephole rewrites for LLVM IR and MLIR. The workflow combines (1) a curated dataset of small patterns, (2) candidate rewrites, (3) formal or bounded correctness checks, and (4) a baseline comparison against LLVM’s local optimization passes. The goal is to determine whether LLMs can surface valid, missed peephole optimizations and to quantify the rate of invalid or hallucinated rewrites.
+This repository implements a controlled evaluation of LLM-generated peephole rewrites for LLVM IR and MLIR. The workflow combines:
+
+1. A curated dataset of LLVM IR / MLIR patterns.
+2. Automatic candidate rewrite generation using a Large Language Model (LLM).
+3. Formal or bounded correctness validation.
+4. Comparison against LLVM's existing optimization passes.
+
+The goal is to determine whether an LLM can discover valid missed peephole optimizations and to quantify how often generated rewrites are invalid, hallucinated, or already known to the compiler.
 
 **Required documents:** `DESIGN`, `IMPLEMENTATION`, `EVALUATION`.
 
-## Problem statement (from the assignment)
+---
 
-LLVM already performs many optimizations, but no optimizer is perfect. This project tests whether an LLM can suggest *valid* missed peephole optimizations and how those suggestions can be formally validated. The expected deliverables include a dataset of patterns, LLM candidate rewrites, a validation framework, and analysis of valid vs invalid suggestions.
+## Problem Statement
 
-## What this repository delivers
+LLVM already performs many optimizations, but no optimizer is perfect. This project investigates whether an LLM can suggest valid missed peephole optimizations and how those suggestions can be formally validated.
 
-1. **Curated dataset** of LLVM IR and MLIR peephole patterns with metadata.
-2. **Candidate rewrites** (LLM‑style proposals) for every pattern.
-3. **Validation framework**:
+The expected deliverables include:
+
+- A dataset of optimization patterns.
+- LLM-generated candidate rewrites.
+- A validation framework.
+- Analysis of valid vs invalid suggestions.
+- A study of whether LLMs discover useful missed optimizations or mostly hallucinate.
+
+---
+
+## What This Repository Delivers
+
+1. **Curated dataset** of LLVM IR and MLIR peephole patterns.
+2. **LLM-generated candidate rewrites** using Gemini.
+3. **Validation framework**
    - LLVM IR: Alive2 equivalence checking.
-   - MLIR: bounded equivalence checking with a small interpreter.
-4. **Baseline comparison**:
-   - LLVM IR: `instcombine` + `simplifycfg`.
-   - MLIR: rule‑based canonicalization simulation.
-5. **Evaluation reports**:
-   - Per‑case diffs and validation logs.
-   - Aggregate metrics and classification tables.
+   - MLIR: bounded equivalence checking using a lightweight interpreter.
+4. **Baseline comparison**
+   - LLVM IR: `instcombine` + `simplifycfg`
+   - MLIR: rule-based canonicalization simulation.
+5. **Evaluation reports**
+   - Per-case validation logs.
+   - Aggregate metrics.
+   - Failure analysis and classification tables.
 
-## Build and run
+---
+
+## Workflow
+
+```text
+LLVM IR / MLIR Pattern
+            │
+            ▼
+generate_candidates.py
+            │
+            ▼
+LLM Candidate Rewrite
+            │
+            ▼
+Validation
+(Alive2 / Bounded Equivalence)
+            │
+            ▼
+LLVM Baseline Comparison
+            │
+            ▼
+Classification
+            │
+            ▼
+Results & Reports
+```
+
+---
+
+## Build and Run
+
+### Build
 
 ```bash
 ./scripts/build.sh
+```
+
+### Configure LLM Access
+
+Obtain a Gemini API key and export it:
+
+```bash
+export GEMINI_API_KEY="YOUR_API_KEY"
+```
+
+### Run Full Pipeline
+
+```bash
 ./scripts/run.sh
 ```
 
 Outputs:
 
-- `results/summary.md` and `results/summary.json` (LLVM IR)
-- `results_mlir/summary.md` and `results_mlir/summary.json` (MLIR)
+- `results/summary.md`
+- `results/summary.json`
+- `results_mlir/summary.md`
+- `results_mlir/summary.json`
 
-## Results snapshot (current repo outputs)
+---
 
-| Track | Total | Confirmed missed | Baseline optimizes | Hallucinated | Invalid | Profitability (valid only) |
-|---|---:|---:|---:|---:|---:|---|
-| LLVM IR | 48 | 4 | 31 | 4 | 0 | 30 better / 12 neutral / 2 worse |
-| MLIR | 8 | 2 | 4 | 2 | 0 | 4 better / 2 neutral / 0 worse |
+## LLM Candidate Generation
 
-Per‑case analyses and diffs are in `results/summary.md` and `results_mlir/summary.md`.
-The Results are mentioned in https://nischal2805.github.io/assignment14-llm-peephole-llvmir/
-## Method overview
+Candidate rewrites are generated automatically using:
 
-1. **Dataset**: source/candidate pairs in `testcases/llvm_ir` and `testcases/mlir`.
-2. **Correctness**:
-   - LLVM IR: Alive2 (`alive-tv`).
-   - MLIR: bounded equivalence over sampled inputs.
-3. **Baseline comparison**:
-   - LLVM IR: `opt -passes=instcombine,simplifycfg` + `llvm-diff`.
-   - MLIR: rule‑based canonicalization simulation.
-4. **Classification**: confirmed missed, baseline optimizes, invalid/hallucinated, and profitability proxy.
+```text
+src/generate_candidates.py
+```
 
-## Classification definitions
+The script:
 
-- **confirmed_missed**: candidate is valid and differs from the baseline output.
-- **baseline_optimizes**: baseline already performs the simplification.
-- **invalid_candidate**: candidate fails formal/bounded validation.
-- **hallucinated_candidate**: intentionally incorrect candidate rejected by validation.
-- **different_but_not_missed**: baseline changes IR but candidate still differs; requires manual review.
+1. Reads source patterns from:
 
-## Profitability proxy
+```text
+testcases/llvm_ir/*.ll
+testcases/mlir/*.mlir
+```
 
-The pipeline computes a simple profitability proxy: value‑producing instruction count in the candidate vs the source. This yields three labels:
+2. Sends each pattern to Gemini 2.5 Flash.
 
-- **better**: fewer value‑producing instructions.
-- **neutral**: same count.
-- **worse**: higher count.
+3. Requests a semantically equivalent local peephole optimization.
 
-This is a proxy metric, not a full LLVM cost model.
+4. Saves the generated rewrite as:
 
-## Repository structure
+```text
+<name>.candidate.ll
+<name>.candidate.mlir
+```
+
+Example:
+
+```text
+c01.ll
+   │
+   ▼
+Gemini
+   │
+   ▼
+c01.candidate.ll
+```
+
+Generated candidates are **not trusted** and must pass validation before being considered valid optimizations.
+
+---
+
+## Method Overview
+
+### 1. Dataset
+
+Source optimization patterns are stored in:
+
+```text
+testcases/llvm_ir/
+testcases/mlir/
+```
+
+### 2. Candidate Generation
+
+Gemini 2.5 Flash generates candidate rewrites for each pattern.
+
+### 3. Correctness Validation
+
+#### LLVM IR
+
+Uses Alive2:
+
+```text
+alive-tv
+```
+
+to formally prove semantic equivalence.
+
+#### MLIR
+
+Uses bounded equivalence checking over sampled inputs.
+
+### 4. Baseline Comparison
+
+#### LLVM IR
+
+Runs:
+
+```bash
+opt -passes=instcombine,simplifycfg
+```
+
+and compares the result using:
+
+```text
+llvm-diff
+```
+
+#### MLIR
+
+Uses a rule-based canonicalization simulation.
+
+### 5. Classification
+
+Each candidate is classified as:
+
+- `confirmed_missed`
+- `baseline_optimizes`
+- `invalid_candidate`
+- `hallucinated_candidate`
+- `different_but_not_missed`
+
+---
+
+## Classification Definitions
+
+### confirmed_missed
+
+Candidate is valid and LLVM baseline does not perform the rewrite.
+
+### baseline_optimizes
+
+LLVM already performs the optimization.
+
+### invalid_candidate
+
+Candidate fails formal or bounded validation.
+
+### hallucinated_candidate
+
+Candidate is semantically incorrect and rejected by validation.
+
+### different_but_not_missed
+
+Candidate differs from baseline but requires manual review.
+
+---
+
+## Profitability Proxy
+
+The pipeline estimates profitability using value-producing instruction counts.
+
+Labels:
+
+- **better** → fewer instructions
+- **neutral** → same number of instructions
+- **worse** → more instructions
+
+This is only a proxy and not a replacement for LLVM's full cost model.
+
+---
+
+## Repository Structure
 
 ```text
 assignment14-llm-peephole-llvmir/
@@ -83,6 +258,7 @@ assignment14-llm-peephole-llvmir/
 ├── IMPLEMENTATION
 ├── EVALUATION
 ├── src/
+│   ├── generate_candidates.py
 │   ├── run_experiments.py
 │   └── run_mlir_experiments.py
 ├── scripts/
@@ -97,16 +273,20 @@ assignment14-llm-peephole-llvmir/
 └── results_mlir/
 ```
 
-## Testcase format
+---
+
+## Testcase Format
 
 ### LLVM IR
 
-Each testcase has:
+Each testcase contains:
 
-- `<name>.ll` (source)
-- `<name>.candidate.ll` (candidate rewrite)
+```text
+<name>.ll
+<name>.candidate.ll
+```
 
-Metadata is embedded at the top of the source file:
+Metadata:
 
 ```llvm
 ; TITLE: My optimization idea
@@ -118,12 +298,14 @@ Metadata is embedded at the top of the source file:
 
 ### MLIR
 
-Each testcase has:
+Each testcase contains:
 
-- `<name>.mlir` (source)
-- `<name>.candidate.mlir` (candidate rewrite)
+```text
+<name>.mlir
+<name>.candidate.mlir
+```
 
-Metadata is embedded at the top of the source file:
+Metadata:
 
 ```mlir
 // TITLE: My MLIR optimization idea
@@ -133,23 +315,65 @@ Metadata is embedded at the top of the source file:
 // VARIANT: v1
 ```
 
-## Reproducibility and environment
+---
+
+## Reproducibility and Environment
 
 Prerequisites:
 
-- LLVM tools: `opt`, `llvm-diff`, `llvm-as`, `llvm-dis`, `llc`
-- Alive2: `alive-tv`
-- Python 3
+- LLVM tools:
+  - `opt`
+  - `llvm-diff`
+  - `llvm-as`
+  - `llvm-dis`
+  - `llc`
+- Alive2:
+  - `alive-tv`
+- Python 3.10+
+- Google GenAI SDK
 
-Default paths (override via environment variables):
+Install Python dependency:
 
-- `LLVM_BIN=/home/boss/llvm/llvm-build-debug/bin`
-- `ALIVE_TV=/usr/local/bin/alive-tv`
+```bash
+pip install google-genai
+```
 
-The environment check in `scripts/check_env.sh` validates tool availability and versions.
+Default paths:
+
+```bash
+LLVM_BIN=/home/boss/llvm/llvm-build-debug/bin
+ALIVE_TV=/usr/local/bin/alive-tv
+```
+
+Environment variables:
+
+```bash
+export GEMINI_API_KEY=<your_api_key>
+```
+
+The environment check in `scripts/check_env.sh` validates tool availability.
+
+---
+
+## Results Snapshot
+
+| Track | Total | Confirmed Missed | Baseline Optimizes | Hallucinated | Invalid |
+|--------|--------|--------|--------|--------|--------|
+| LLVM IR | 48 | 4 | 31 | 4 | 0 |
+| MLIR | 8 | 2 | 4 | 2 | 0 |
+
+Detailed reports:
+
+- `results/summary.md`
+- `results_mlir/summary.md`
+
+---
 
 ## Limitations
 
-- The MLIR validator is bounded and only supports a small subset of `arith.*` operations.
-- Profitability uses instruction count and does not account for micro‑architectural costs.
-- The baseline pass set is intentionally minimal to isolate peephole behavior.
+- The MLIR validator is bounded and supports only a subset of `arith.*` operations.
+- Profitability is estimated using instruction count only.
+- The baseline pass set is intentionally minimal.
+- LLM-generated rewrites may be invalid or hallucinated.
+- Gemini acts only as a candidate generator, not as a correctness oracle.
+- Results may vary depending on model version, prompts, and generation settings.
